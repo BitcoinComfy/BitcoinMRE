@@ -27,9 +27,14 @@ Once the seed is generated, chacha-drbg is used as CSPRNG.
 
 Open, recover or create a wallet, choose the derivation scheme, the optional passphrase and then "Save Public Info". It will create a file on the SD card with all the XPUBs that you can import on Specter for example.
 
+Public keys will be saved in btc_mre_wallet/xpub/ (if using derivations) or btc_mre_wallet/pub/ (if using a single keypar).
+Private keys will be saved in btc_mre_wallet/xpriv/ (if using derivations) or btc_mre_wallet/priv/ (if using a single keypar).
+Do not save private keys on the SD Card unless you have a really good necessity. Wipe the SD Card properly after.
+
 #### How do I create a PSBT?
 
 I use a full Bitcoin Core node + Specter.
+Move the PSBT inside the SD Card folder called: btc_mre_wallet/psbt/
 
 #### Which PSBT format does it supports?
 
