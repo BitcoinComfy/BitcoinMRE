@@ -1,0 +1,7 @@
+; MRE_API_Tests.def : Declares the module parameters for the DLL.
+
+LIBRARY      "MRE_API_Tests"
+DESCRIPTION  'MRE_API_Tests Windows Dynamic Link Library'
+
+EXPORTS
+    vm_entry @1
