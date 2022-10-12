@@ -3,23 +3,76 @@
 #### Warning
 
 No guarantees are provided about the safety of this app. I tried my best to ensure the PRNG is properly seeded and I have debugged and tested it as much as possible, but bugs do exists and could happen.
+
 I do not take any responsibility from loss of funds or misuse of the app.
+
 The app is open source and you can recompile it from scratch (please do, don't trust, verify).
+
 Keep in mind that this is a hobby project and I strongly recommend (if you can afford it) using better hardware wallets (there are plenty out there: ColdCard, BlockStream Jade, Foundation Passport, Keystone Pro, Trezor Model T, Ledgers, etc.). 
 
 #### Compiled apps
 
-Mainnet: 
-Testnet: 
+Mainnet: [https://github.com/BitcoinComfy/BitcoinMRE/blob/main/arm/Mainnet.vxp?raw=true](https://github.com/BitcoinComfy/BitcoinMRE/blob/main/arm/Mainnet.vxp?raw=true)
+
+Testnet: [https://github.com/BitcoinComfy/BitcoinMRE/blob/main/arm/Testnet.vxp?raw=true](https://github.com/BitcoinComfy/BitcoinMRE/blob/main/arm/Testnet.vxp?raw=true)
 
 #### Why?
 
-Because it can run on cheap mass-market devices that do not require any assembling / firmware flashing or particular skills to install and run.
+Because it can run on cheap mass-market devices / feature-phones that do not require any assembling / firmware flashing or particular skills to install and run.
+
 A Nokia 5310 2020 is sold for 15/20$, it has a keyboard, a screen, a SD card reader, a camera and it can run C code.
+
+#### Tested devices
+
+- Nokia 5310 2020:  WORKING
+- Nokia 110:        NOT WORKING (limited ram, it can only run 10kb ELFs...)
+
+I recommend trying with a 320x240 Nokia Series S30+ with SD card support (there are several of them).
+
+Nokia 215, 216, 220, 222, 225, 230 and 3310 (2017) *SHOULD* work. Please help me testing them.
+
+Other MRE phones that *potentially* could work if they have enough ram:
+
+Nokia:
+- Nokia 200
+- Nokia 320 
+- Nokia 130
+- Nokia 105 
+- Nokia 150
+- Nokia 106
+
+Symphony:
+- Symphony D67
+- Symphony D64i
+- Symphony s100
+- Symphony s100i
+- Symphony FT60i
+- Symphony FT540
+- Symphony SL10
+- Symphony d52j
+- other Symphony brand non-Android toches phone
+
+Winmax:
+- Winmax w678
+- Winmax w102
+
+Gphone:
+- some models
+
+Other:
+- Micromax x445
+- Zonda ZM340TH
+- Alcatel 3003G
+- Alcatel 3041d 
+- Western D32
+- Explay tv240
 
 #### How to run it
 
 Copy the vpx application into the SD Card and run it from the File Manager.
+
+Use the arrow keys to navigate (up, down, left->Back, right->Next/OK/Enter). 
+When selecting the files (e.g. the PSBT) with the integrated file explorer, use the left action button to select the file (cannot change OS internals/behavior).
 
 #### Entropy generation / randomness
 
@@ -44,12 +97,15 @@ Once the seed is generated, chacha-drbg is used as CSPRNG.
 Open, recover or create a wallet, choose the derivation scheme, the optional passphrase and then "Save Public Info". It will create a file on the SD card with all the XPUBs that you can import on Specter for example.
 
 Public keys will be saved in btc_mre_wallet/xpub/ (if using derivations) or btc_mre_wallet/pub/ (if using a single keypar).
+
 Private keys will be saved in btc_mre_wallet/xpriv/ (if using derivations) or btc_mre_wallet/priv/ (if using a single keypar).
+
 Do not save private keys on the SD Card unless you have a really good necessity. Wipe the SD Card properly after.
 
 #### How do I create a PSBT?
 
 I use a full Bitcoin Core node + Specter.
+
 Move the PSBT inside the SD Card folder called: btc_mre_wallet/psbt/
 
 #### Which PSBT format does it supports?
@@ -65,11 +121,15 @@ When you sign a PSBT, a base64 encoded PSBT is generated with the appended ".sig
 To broadcast I use Bitcoin Core command line.
 
 Fire up the daemon:
+
 bitcoind --testnet
 
 Then use the command line:
+
 bitcoin-cli --testnet utxoupdatepsbt <base64_psbt>
+
 bitcoin-cli --testnet finalizepsbt <utxoupdatepsbt_base64_psbt>
+
 bitcoin-cli --testnet sendrawtransaction <finalizepsbt_raw_tx>
 
 Done.
@@ -80,22 +140,48 @@ It's "proprietary". It uses some rudimental PBKDF2-style derivation + AES + redu
 
 #### Limitations
 
-No bench32 address support.
 No taproot support.
+
 No camera/QRCode support (yet).
+
 Many other smaller limitations.
+
 Graphical glitches.
+
 Word wrap is ugly.
+
 Some actions don't have a graphical warning (e.g. wrong wallet password will just go back to text input, until you type the correct pass).
 
 #### What I could do next (or not)
 
+Cleanup the spaghetti-code mess (not a good coder, sorry, I'm a security researcher, I hack devices and crack apps for fun and profit). The idea was to "finish it ASAP", ignore the fancy stuff, and see if people find it useful.
+
 Fix word wrap.
+
 Add camera and QRCode support.
+
 Maybe switch to micropython+embit (easier to maintain, more features, etc.).
+
 Broadcasting transactions via SMS (cool).
 
-#### Quick notes of an MRE app
+#### Apps and libraries used
+
+- https://github.com/UstadMobile/ustadmobile-mre
+- https://github.com/Immediate-Mode-UI/Nuklear
+- https://github.com/micro-bitcoin/uBitcoin
+- https://github.com/trezor/trezor-firmware/tree/master/crypto
+- https://github.com/kokke/tiny-AES-c
+- https://github.com/jannson/reedsolomon-c
+
+#### Building the app and using the Windows simulator for debugging
+
+Read below (copy pasted from from https://github.com/UstadMobile/ustadmobile-mre )
+
+Use the C-flag -DTRY_TESTNET=1 to compile for Testnet.
+
+The final executable will be placed in arm/Default.vxp
+
+#### Quick notes of an MRE app (from UstadMobile)
 
 An MRE app can have access to file system, play media, draw 2D graphics with a 2D engine, has keyboard, touch and pen access, play audio, record, have access to Network with http, tcp socket support, have 5 levels of logging, parse xmls and has its own simulator.  Mediatek has today ended support for MRE and even its tools and discussions making it quite hard to develop for this platform. 
 
@@ -103,7 +189,7 @@ The file extension for an MRE App is .vxp and it is a binary executable file tha
 
 During development, an MRE application gets built for x86 based processors that can run on the MRE simulator on Windows. In order to get the same project built for an actual MRE application, there is another step where we "make" the application that gives a vxp file that can be executed on the Mediatek MRE capable phone. 
 
-An MRE application structured is based around events. At the start of the application you attach event handlers to system, key and pen events. It seems you cannot change the handlers again once they are assigned. 	
+An MRE application structured is based around events. At the start of the application you attach event handlers to system, key and pen events. It seems you cannot change the handlers again once they are assigned.    
 
 #### Development Setup
 
