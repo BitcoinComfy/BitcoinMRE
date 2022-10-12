@@ -130,20 +130,4 @@ share.h Shared global variables
 #include "vmtimer.h"
 #include "vmxml.h"
 
-/* Declaration */
-void mre_tcp_callback_application(VMINT handle, VMINT event);
-/*****************************************************************************
- * FUNCTION
- *  mre_start_menu
- * DESCRIPTION
- *  This function displays menu list on the screen for selection 
- * PARAMETERS
- *  none
- * RETURNS
- *	none
- TODO: Move to BitcoinMRE.h 
-*****************************************************************************/
-void mre_start_menu(void);
-
-
 #endif // __MRE_SHARE__

@@ -61,19 +61,6 @@ void set_priv(char* str);
 size_t c_fromBase64Length(const char * array, size_t arraySize, uint8_t flags);
 size_t c_fromBase64(const char * encoded, size_t encodedSize, uint8_t * output, size_t outputSize, uint8_t flags);
 
-#if 0
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save XPUB", 1, 0, NULL);////
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT", 1, 0, NULL);////
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display XPUB", 1, 0, NULL);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display XPRIV", 1, 0, NULL);
-	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display mnemonics", 1, 0, NULL);
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub key", 1, 0, NULL);
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT", 1, 0, NULL);
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub key", 1, 0, NULL);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display priv key", 1, 0, NULL);
-#endif
-
-
 #ifdef __cplusplus
 }
 #endif

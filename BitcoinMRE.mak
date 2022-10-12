@@ -81,8 +81,6 @@ HEADER_FILES= \
 
 	./mini_stdint.h \
 
-	./mre_display.h \
-
 	./mre_events.h \
 
 	./mre_io.h \

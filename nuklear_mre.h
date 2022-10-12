@@ -117,7 +117,4 @@ int nk_init_mre(struct nk_context *ctx, const struct nk_user_font *font);
 void* mre_malloc(nk_handle unused, void *old, nk_size size); //nk_handle: A pointer, an int id; nk_size: unsigned long
 void mre_free(nk_handle unused, void* old); //nk_handle: A pointer, an int id
 
-struct mre_nk_c * mre_nk_c_create(int type, char *title, int len, int hovering, char *url, char *thumb);
-
-
 #endif

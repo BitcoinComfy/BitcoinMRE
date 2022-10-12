@@ -235,15 +235,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\mre_display.c"
-				>
-			</File>
-			<File
 				RelativePath=".\mre_io.c"
-				>
-			</File>
-			<File
-				RelativePath=".\mre_menu.c"
 				>
 			</File>
 			<File
@@ -585,10 +577,6 @@
 			</File>
 			<File
 				RelativePath=".\mini_stdint.h"
-				>
-			</File>
-			<File
-				RelativePath=".\mre_display.h"
 				>
 			</File>
 			<File
