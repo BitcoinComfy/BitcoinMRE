@@ -111,6 +111,8 @@ You will need a Windows machine, Visual Studio 2008 is recommended and works the
 
 The next step is to Download Mediatek MRE's SDK  from [here](http://www.ustadmobile.com/mre/MRE_SDK_3.0.00.20_Normal_Eng_0.zip) (since Mediatek has removed any reference, discussion or tools relating to MRE) and install it. This SDK will make sure the necessary include header files for MRE SDK are available to be included in your project. This will also install a Wizard tool that will make you a demo application. The SDK also comes with a simulator and a Visual Studio 2008 toolbar that gets installed on to Visual Studio. 
 
+Please install MRE_SDK into this path: C:\tools\MRE_SDK_V3
+
 ## Visual Studio Steps##
 
 Get Visual Studio2008 / Visual C++ 2008 Express. Might work with newer versions but I haven't tried those.
@@ -119,9 +121,9 @@ Tools > Options> Projects and Solutions > VC++ Directories
 
 $(VCInstallDir)include
 
-C:\Program Files(x86)\MRE DSK V3.0.00\include
+C:\tools\MRE_SDK_V3\include
 
-C:\Program Files(x86)\MRE SDK V3.0.00\include\service
+C:\tools\MRE_SDK_V3\include\service
 
 ![vs01](images/vs01.png)
 
@@ -131,7 +133,7 @@ $(VCInstallDir)lib
 
 $(WindowsSdkDir)\lib
 
-C:\Program Files(x86)\MRE SDK V3.0.00\lib
+C:\tools\MRE_SDK_V3\lib
 
  ![vs02](images/vs02.png)
 
@@ -147,7 +149,7 @@ Make a addin folder:
 
 C:\Program Files(x86)\Microsoft Visual Studio 9.0\VC\bin\Addins
 
-And copy the files :MRE.AddIn and MRE2.0.dll from C:\Program Files (x86)\MRE SDK V3.0.00\tools intothis folder
+And copy the files :MRE.AddIn and MRE2.0.dll from C:\tools\MRE_SDK_V3\tools intothis folder
 
  ![vs03](images/vs03.png) ![vs04](images/vs04.png) 
 
@@ -256,7 +258,7 @@ To access this, hit the Settings/Options button on the MRE toolbar in Visual Stu
 
 ```
 	ARM Processor: ARM7EJ-S
-	Compiler Options:-O2 -g --split_sections --apcs=/fpic -cpu ARM7EJ-S -		D__MRE_COMPILER_RVCT__ 
+	Compiler Options:-O2 --split_sections --cpu ARM7EJ-S -D__MRE_COMPILER_RVCT__ 
 	Linker options: --fpic --sysv --entry rvct_entry --first rvct_entry
 
 ```
@@ -271,6 +273,17 @@ Got a keygen from MDK6 that has a longer expiration, but the Linker still doesn'
 It is also possible to use Sourcery CodeBench Lite for ARM EABI, but the standard libraries / libc are built for Posix and MRE doesn't have many of those, and it doesn't support sbrk (it uses OS allocations, e.g. vm_malloc instead of sbrk-based malloc).
 So far Keil 5.18a / ARM Compiler 5.X works the best. Buy a license (if you can) or hit me up for help.
 
+#### Debugging
+
+To debug using Visual Studio, you can rename: BitcoinMRE.vcproj.DESKTOP-O7OUBIN.anon.user into BitcoinMRE.vcproj.<COMPUTER_NAME>.anon.user
+
+Or you can set: "C:\tools\MRE_SDK_V3\models\Model01_QVGA_MRE3.0\MoDIS\Release\MoDIS.exe" as debug executable.
+
+From the emulator go to the File Manager->SD Card->mre->BitcoinMRE.vpx->Install (you need to do it only once, there is no need to repeat this step when recompiling)
+
+Then you can scroll the apps and on the last right tab there will be the app that you can start.
+
+You can set breakpoints and debug the app.
 
 #### Thx to
 

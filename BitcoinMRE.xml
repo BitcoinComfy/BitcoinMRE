@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--This file represents user settings about package information that will be packaged into vxp(MRE4.0)-->
+<appconfig>
+  <Index>
+    <select>0</select>
+  </Index>
+  <AdsInclude>
+    <AdsIncludePath>C:\tools\MRE_SDK_V3\include</AdsIncludePath>
+    <AdsIncludePath>C:\tools\MRE_SDK_V3\include\service</AdsIncludePath>
+  </AdsInclude>
+  <AdsLib>
+    <AdsLibraryPath>C:\tools\MRE_SDK_V3\lib\armads</AdsLibraryPath>
+  </AdsLib>
+  <RvctInclude>
+    <RvctIncludePath>C:\tools\MRE_SDK_V3\include</RvctIncludePath>
+    <RvctIncludePath>C:\tools\MRE_SDK_V3\include\service</RvctIncludePath>
+  </RvctInclude>
+  <RvctLib>
+    <RvctLibraryPath>C:\tools\MRE_SDK_V3\lib\armrvct</RvctLibraryPath>
+  </RvctLib>
+</appconfig>

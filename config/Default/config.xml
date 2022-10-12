@@ -51,7 +51,7 @@
     <PushSenderID>
     </PushSenderID>
     <autostart>unchecked</autostart>
-    <TransferImg>unchecked</TransferImg>
+    <TransferImg>checked</TransferImg>
     <idleshortcut>unchecked</idleshortcut>
   </targetconfig>
   <namelist>

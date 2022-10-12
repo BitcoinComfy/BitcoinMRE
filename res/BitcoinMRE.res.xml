@@ -1,0 +1,4 @@
+<APP id="APP_BitcoinMRE">
+    <RESOLUTION width="240" height="320" class="image" />
+    <STRING>.\res\ref_list_BitcoinMRE.txt</STRING>
+</APP>

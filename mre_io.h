@@ -31,7 +31,7 @@
  *  none
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h 
+ TODO: Move to BitcoinMRE.h 
 *****************************************************************************/
 void mre_start_io_menu(void);
 
@@ -44,7 +44,7 @@ void mre_start_io_menu(void);
  *  val			         [IN]      it is true or false
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h 
+ TODO: Move to BitcoinMRE.h 
 *****************************************************************************/
 void mre_set_fileiocontext(VMINT val);
 
@@ -57,7 +57,7 @@ void mre_set_fileiocontext(VMINT val);
  *  none
  * RETURNS
  *	g_mre_subcontext    [OUT]      it is true or false
- TODO: Move to MRE_API_Tests.h 
+ TODO: Move to BitcoinMRE.h 
 *****************************************************************************/
 VMINT mre_get_fileiosubcontext(void);
 
@@ -71,7 +71,7 @@ VMINT mre_get_fileiosubcontext(void);
  *  text				[IN]      Text string in ASCII or GB2312 format
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 void mre_textbox_handle(VMINT state, VMWSTR text);
 
@@ -84,7 +84,7 @@ void mre_textbox_handle(VMINT state, VMWSTR text);
  *  none
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 void mre_io_submenu(void);
 
@@ -135,7 +135,7 @@ VMINT mre_get_subcontext(void);
  *  text			         [IN]      text from input textbox
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 void mre_set_textbox_text(VMWSTR text);
 
@@ -150,7 +150,7 @@ void mre_set_textbox_text(VMWSTR text);
  * RETURNS
  *	g_mre_textbox_text    [OUT]      it is pointer to text stored in global 
  *                                   vaiable
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 VMWSTR mre_get_textbox_text(void);
 
@@ -163,7 +163,7 @@ VMWSTR mre_get_textbox_text(void);
  *  state			         [IN]      it is ok or cancel
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 void mre_set_textbox_state(VMINT state);
 
@@ -176,7 +176,7 @@ void mre_set_textbox_state(VMINT state);
  *  none
  * RETURNS
  *	g_mre_textbox_state    [OUT]      it is ok or cancel
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 VMINT mre_get_textbox_state(void);
 
@@ -214,7 +214,7 @@ void mre_set_drv(void);
  *  none
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
 *****************************************************************************/
 void mre_set_global_data (void);
 

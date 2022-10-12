@@ -51,7 +51,7 @@ void mre_file_result (VMINT result);
  *  text				[IN]      Text string in ASCII or GB2312 format
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h
+ TODO: Move to BitcoinMRE.h
  he
 *****************************************************************************/
 void mre_show_text(VMSTR text);

@@ -141,7 +141,7 @@ void mre_tcp_callback_application(VMINT handle, VMINT event);
  *  none
  * RETURNS
  *	none
- TODO: Move to MRE_API_Tests.h 
+ TODO: Move to BitcoinMRE.h 
 *****************************************************************************/
 void mre_start_menu(void);
 
