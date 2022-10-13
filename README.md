@@ -387,6 +387,8 @@ You can set breakpoints and debug the app.
 
 #### Other useful links for MRE platform
 
+https://pastebin.com/LVnux2u4
+
 https://stackoverflow.com/questions/72519240/how-to-get-nokia-s30s-mre-vxp-file-to-run-on-nokia-225
 
 https://4pda.to/forum/index.php?showtopic=1041371&st=20
