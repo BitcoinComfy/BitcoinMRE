@@ -42,7 +42,7 @@
     <userfont>unchecked</userfont>
     <screenrotate>unchecked</screenrotate>
     <autoadaptable>unchecked</autoadaptable>
-    <mem>500</mem>
+    <mem>3072</mem>
     <usesysmemory>unchecked</usesysmemory>
     <sysdisk>
     </sysdisk>

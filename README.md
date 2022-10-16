@@ -391,13 +391,28 @@ https://pastebin.com/LVnux2u4
 
 https://stackoverflow.com/questions/72519240/how-to-get-nokia-s30s-mre-vxp-file-to-run-on-nokia-225
 
-https://4pda.to/forum/index.php?showtopic=1041371&st=20
+https://4pda.to/forum/index.php?showtopic=1041371
+
+https://4pda.to/forum/index.php?showtopic=501783
 
 https://vxpatch.luxferre.top
 
 https://forum.xda-developers.com/t/mtk-smart-device-apps.3430632/#post-68107125
 
 https://coolwatchfaces.com/create-vxp-watch-face/
+
+
+Mediatek MRE docs + kernel + misc for 3 different devices (it is very useful to look at the kernel functions since documentation is very poor):
+
+https://github.com/duxinglang-1/KJX_K7/
+
+https://github.com/AIOT-WORKSHOP/AWS_MT2503_SDK/
+
+https://github.com/adasngle/testmywatch/
+
+Pluto MMI (e.g. Camera app): 
+
+https://github.com/mtek-hack-hack/mtktest/
 
 #### Thx to
 

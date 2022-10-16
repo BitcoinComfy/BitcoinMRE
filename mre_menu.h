@@ -44,6 +44,9 @@ enum views {
 	NK_MRE_VIEW_WALLET_PSBT_ERROR,	// psbt signing error
 	NK_MRE_VIEW_SENSITIVE_SAVE, // warning about saving sensitive info (priv keys)
 	NK_MRE_VIEW_SENSITIVE_SAVED,	// sensitive data saved
+
+	NK_MRE_VIEW_QR_TEST,			// read qr decoded text
+
 	// implement later on...maybe   //
 	NK_MRE_VIEW_SETTINGS,			// settings (Internet/SMS RPC servers)
 	NK_MRE_VIEW_FETCH_UTXO_BALANCE_INTERNET,	// fetch UTXOs via Internet

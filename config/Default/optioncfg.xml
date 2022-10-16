@@ -22,7 +22,6 @@
       <includepath>C:\Program Files (x86)\MRE SDK V3.0.00\include</includepath>
       <includepath>C:\Program Files (x86)\MRE SDK V3.0.00\include\service</includepath>
       <includepath>.</includepath>
-      <includepath>.\miniz</includepath>
       <includepath>.\src\tiny-AES-c</includepath>
       <includepath>.\src\uBitcoin\src\utility\trezor</includepath>
       <includepath>.\src\uBitcoin\src\utility</includepath>

@@ -3,7 +3,7 @@
 CC=armcc
 CXX=armcpp
 CXXFLAGS=$(CFLAGS)
-CFLAGS+= -W  -o0 -g -Ono-inline   -I .\include;.\include\service;.\include\component;.\ResID;.\src\app\widget;.\src\app\launcher;.\src\app\wallpaper;.\src\app\screen_lock;.\include\service;.\include\component;.\src\framework;.\src\framework\ui_core\base;.\src\framework\ui_core\mvc;.\src\framework\ui_core\pme;.\src\framework\mmi_core;.\src\ui_engine\vrt\interface;.\src\component;.\src\ui_engine\framework\xml;.\;.;.\src\tiny-AES-c;.\src\uBitcoin\src;.\src\uBitcoin\src\utility;.\src\uBitcoin\src\utility\trezor;.\src\reedsolomon-c;.\src\QRCode
+CFLAGS+= -W  -o0 -g -Ono-inline   -I .\include;.\include\service;.\include\component;.\ResID;.\src\app\widget;.\src\app\launcher;.\src\app\wallpaper;.\src\app\screen_lock;.\include\service;.\include\component;.\src\framework;.\src\framework\ui_core\base;.\src\framework\ui_core\mvc;.\src\framework\ui_core\pme;.\src\framework\mmi_core;.\src\ui_engine\vrt\interface;.\src\component;.\src\ui_engine\framework\xml;.\;.;.\src\tiny-AES-c;.\src\uBitcoin\src;.\src\uBitcoin\src\utility;.\src\uBitcoin\src\utility\trezor;.\src\reedsolomon-c;.\src\QRCode;.\src\zbar;.\src\zbar\qrcode;.\src\zbar\decoder
 
 LD=$(CXX) $(CXXFLAGS)
 
@@ -63,15 +63,53 @@ TINY-AES-C= \
 
 REEDSOLOMON-C= \
 
-	./src/reedsolomon-c/rs.c \
+	./src/reedsolomon-c/reedsolomon.c \
 
-	./src/reedsolomon-c/rs.h
+	./src/reedsolomon-c/reedsolomon.h
 
 QRCODE= \
 
-	./src/QRCode/qrcode.c \
+	./src/QRCode/qrcode_encoder.c \
 
-	./src/QRCode/qrcode.h
+	./src/QRCode/qrcode_encoder.h
+
+QRCODE= \
+
+	./src/zbar/qrcode/bch15_5.c \
+
+	./src/zbar/qrcode/bch15_5.h \
+
+	./src/zbar/qrcode/binarize.c \
+
+	./src/zbar/qrcode/binarize.h \
+
+	./src/zbar/qrcode/isaac.c \
+
+	./src/zbar/qrcode/isaac.h \
+
+	./src/zbar/qrcode/qrdec.c \
+
+	./src/zbar/qrcode/qrdec.h \
+
+	./src/zbar/qrcode/qrdectxt.c \
+
+	./src/zbar/qrcode/rs.c \
+
+	./src/zbar/qrcode/rs.h \
+
+	./src/zbar/qrcode/util.c \
+
+	./src/zbar/qrcode/util.h
+
+DECODER= \
+
+	./src/zbar/decoder/qr_finder.c \
+
+	./src/zbar/decoder/qr_finder.h
+
+PROCESSOR= \
+
+	./src/zbar/processor/lock.c
 
 HEADER_FILES= \
 
@@ -97,7 +135,7 @@ RESOURCE_FILES= \
 
 	./res/BitcoinMRE.res.xml
 
-SRCS=$(CHACHA20POLY1305) $(TINY-AES-C) $(REEDSOLOMON-C) $(QRCODE) $(HEADER_FILES) $(RESOURCE_FILES) 
+SRCS=$(CHACHA20POLY1305) $(TINY-AES-C) $(REEDSOLOMON-C) $(QRCODE) $(QRCODE) $(DECODER) $(PROCESSOR) $(HEADER_FILES) $(RESOURCE_FILES) 
 
 OBJS=$(patsubst %.cxx,%.o,$(patsubst %.cpp,%.o,$(patsubst %.cc,%.o,$(patsubst %.c,%.o,$(filter %.c %.cc %.cpp %.cxx ,$(SRCS))))))
 

@@ -21,4 +21,7 @@ typedef unsigned           int size_t;
 #define FALSE 0
 #define TRUE 1
 
+//typedef signed long intptr_t;
+//typedef unsigned long uintptr_t;
+
 #endif // __MINI_STDINT__

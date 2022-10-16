@@ -30,10 +30,10 @@ typedef struct _reed_solomon {
 /**
  * MUST initial one time
  * */
-void fec_init(void);
+void _fec_init(void);
 
-reed_solomon* reed_solomon_new(int data_shards, int parity_shards);
-void reed_solomon_release(reed_solomon* rs);
+reed_solomon* _reed_solomon_new(int data_shards, int parity_shards);
+void _reed_solomon_release(reed_solomon* rs);
 
 /**
  * encode one shard
@@ -42,7 +42,7 @@ void reed_solomon_release(reed_solomon* rs);
  * data_blocks[rs->data_shards][block_size]
  * fec_blocks[rs->data_shards][block_size]
  * */
-int reed_solomon_encode(reed_solomon* rs,
+int _reed_solomon_encode(reed_solomon* rs,
         unsigned char** data_blocks,
         unsigned char** fec_blocks,
         int block_size);
@@ -58,7 +58,7 @@ int reed_solomon_encode(reed_solomon* rs,
  * erased_blocks: erased blocks in original data_blocks
  * nr_fec_blocks: the number of erased blocks
  * */
-int reed_solomon_decode(reed_solomon* rs,
+int _reed_solomon_decode(reed_solomon* rs,
         unsigned char **data_blocks,
         int block_size,
         unsigned char **dec_fec_blocks,
@@ -73,7 +73,7 @@ int reed_solomon_decode(reed_solomon* rs,
  * nr_shards: assert(0 == nr_shards % rs->data_shards)
  * shards[nr_shards][block_size]
  * */
-int reed_solomon_encode2(reed_solomon* rs, unsigned char** shards, int nr_shards, int block_size);
+int _reed_solomon_encode2(reed_solomon* rs, unsigned char** shards, int nr_shards, int block_size);
 
 /**
  * reconstruct a big size of buffer
@@ -83,6 +83,6 @@ int reed_solomon_encode2(reed_solomon* rs, unsigned char** shards, int nr_shards
  * shards[nr_shards][block_size]
  * marks[nr_shards] marks as errors
  * */
-int reed_solomon_reconstruct(reed_solomon* rs, unsigned char** shards, unsigned char* marks, int nr_shards, int block_size);
+int _reed_solomon_reconstruct(reed_solomon* rs, unsigned char** shards, unsigned char* marks, int nr_shards, int block_size);
 #endif
 

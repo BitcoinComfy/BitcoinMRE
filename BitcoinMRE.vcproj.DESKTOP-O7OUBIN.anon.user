@@ -37,7 +37,7 @@
 			Name="Release|Win32"
 			>
 			<DebugSettings
-				Command=""
+				Command="C:\tools\MRE_SDK_V3\models\Model01_QVGA_MRE3.0\MoDIS\Release\MoDIS.exe"
 				WorkingDirectory=""
 				CommandArguments=""
 				Attach="false"

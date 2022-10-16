@@ -2,14 +2,16 @@
 #include "nuklear_mre.h"
 #include "rand.h"
 #include "vmche.h"
+#include "vmcamera.h"
 #include "sha2.h"
 #define CBC 1
 #define AES256 1
 #include "aes.h"
 #include "pkcs7_padding.h"
-#include "rs.h"
+#include "reedsolomon.h"
 #include "bitcoin_mre.h"
 #include "bip39.h"
+#include "zbar.h"
 
 int g_wallet_type;
 
@@ -53,6 +55,137 @@ int g_wallet_type;
 	VMINT	layer_handle[1];//layer handle array.
 	VMINT	layer_hdl[1];	//layer handle array.
 	VMINT	g_mre_drv;
+
+	int g_callback_none = false;
+	int g_camera_preview = false;
+	VM_CAMERA_HANDLE g_camera_handle = -1;
+	
+#define QR_ARR_MAX_SIZE 1000 // 1 + 999 // part1of2, starts from 1, let's not mess with indexes and keep 0 empty
+	char* g_last_decoded_qr_arr[QR_ARR_MAX_SIZE] = {0};
+	char* g_last_decoded_qr = NULL;
+	//int g_after_camera_next_view = NK_MRE_VIEW_NONE;
+	void (*g_after_camera_action)(void) = NULL;
+
+
+#ifdef TRY_TESTNET
+int dbg_init = 0;
+VMWCHAR w_dbg_path[260];
+char dbg_path[260];
+
+void dbg(char* format, ...)
+{
+	VMFILE handle = -1;
+	VMUINT written = 0;
+
+	char buffer[1024];
+	va_list aptr;
+	va_start(aptr, format);
+	buffer[0] = 0;
+	vm_vsprintf(buffer, format, aptr);
+
+	if (dbg_init == 0)
+	{
+		sprintf(dbg_path, "%c:\\btc_mre_wallet\\dbg.txt", mre_get_drv());
+		vm_ascii_to_ucs2(w_dbg_path, sizeof(w_dbg_path), dbg_path);
+		handle = vm_file_open(w_dbg_path, MODE_CREATE_ALWAYS_WRITE, FALSE);
+		dbg_init = 1;
+	} else {
+		handle = vm_file_open(w_dbg_path, MODE_APPEND, FALSE);
+	}
+	if (handle > 0)
+	{
+		vm_file_write(handle, buffer, strlen(buffer), &written);
+		vm_file_close(handle);
+	} 
+
+	va_end(aptr);
+}
+#else
+void dbg(char* format, ...) {do{}while(0);};
+#endif
+
+char* my_strdup(char* in)
+{
+	char* new_alloc = NULL;
+	if (in == NULL)
+	{
+		new_alloc = vm_calloc(4);
+	} else {
+		new_alloc = vm_malloc(strlen(in)+1);
+		strcpy(new_alloc, in);
+	}
+	return new_alloc;
+}
+
+void clean_last_decoded_qr()
+{
+	int i=0;
+	dbg("[+] clean_last_decoded_qr now\n");
+	if (g_last_decoded_qr)
+	{
+		dbg("[+] g_last_decoded_qr: %p\n", g_last_decoded_qr);
+		dbg("[+] g_last_decoded_qr: %s\n", g_last_decoded_qr);
+		memset(g_last_decoded_qr, 0, strlen(g_last_decoded_qr));
+		vm_free(g_last_decoded_qr);
+		g_last_decoded_qr = NULL;
+	}
+	dbg("[+] g_last_decoded_qr cleaned\n");
+	for (i=0; i<QR_ARR_MAX_SIZE;i++)
+	{
+		char* tmp = g_last_decoded_qr_arr[i];
+		if (tmp)
+		{
+			dbg("[+] g_last_decoded_qr_arr[%d]=%s\n", i, tmp);
+			memset(tmp, 0, strlen(tmp));
+			vm_free(tmp);
+			g_last_decoded_qr_arr[i] = NULL;
+			dbg("[+] g_last_decoded_qr_arr[%d] done\n", i);
+		}
+	}
+	dbg("[+] g_last_decoded_qr done\n");
+};
+
+void stop_preview()
+{
+	int res = vm_camera_preview_stop(g_camera_handle);
+}
+
+void stop_camera()
+{
+	int i = 0;
+	int res = 0;
+	int layer_count = 0;
+
+	res = vm_release_camera_instance(g_camera_handle);
+
+	layer_count = vm_graphic_get_layer_count();
+	//dbg("[+] vm_graphic_get_layer_count: %d\n", layer_count);
+
+	for (i=0; i<layer_count; i++)
+	{
+		res = vm_graphic_delete_layer(i); 
+		//dbg("[+] vm_graphic_delete_layer[%d]: %d\n", i, res);
+	}
+
+	g_camera_preview = false;
+	g_camera_handle = -1;
+	g_callback_none = false;
+	vm_reg_keyboard_callback (nk_mre_handle_key_event);
+	update_gui();
+}
+
+void
+nk_mre_handle_key_event_none(VMINT event, VMINT keycode)
+{
+	if (event == VM_KEY_EVENT_UP)
+	{
+		if (g_camera_preview && g_camera_handle >= 0)
+		{
+			stop_preview();
+		}
+	}
+}
+
 
 	/* 
 		MRE View Properties. The list of components and hoverable counter. 
@@ -1166,8 +1299,9 @@ void hoover_action(VMINT keycode)
 		while(1){};
 	}
 	*/
-
-	update_gui();
+	if (g_callback_none == false) {
+		update_gui();
+	}
 }
 
 	void
@@ -1268,6 +1402,10 @@ void hoover_action(VMINT keycode)
 					vm_graphic_delete_layer (layer_hdl[0]);
 					layer_hdl[0] = -1;
 				}
+				if (g_camera_preview)
+				{
+					stop_preview();
+				}
 				break;
 
 			case VM_MSG_QUIT:
@@ -1277,6 +1415,7 @@ void hoover_action(VMINT keycode)
 					vm_graphic_delete_layer (layer_hdl[0]);
 					layer_hdl[0] = -1;
 				}
+				clean_and_exit(0);
 				break;
 		}
 
@@ -1567,7 +1706,7 @@ void update_char_left(VMINT state, VMWSTR text)
 			random_buffer(buff, sizeof(buff));
 
 			// init reed solomon
-			fec_init();
+			_fec_init();
 
 			set_view(NK_MRE_VIEW_WALLET_ACTION);
 		}
@@ -1854,8 +1993,8 @@ void create_encrypted_wallet(char* wallet_name, uint32_t type, char* wallet_data
 			rs_data_blocks[i] = rs_data + i*rs_block_size;
 		}
 
-		rs = reed_solomon_new(data_shards, parity_shards);
-		reed_solomon_encode2(rs, rs_data_blocks, nr_shards, rs_block_size);
+		rs = _reed_solomon_new(data_shards, parity_shards);
+		_reed_solomon_encode2(rs, rs_data_blocks, nr_shards, rs_block_size);
 
 		for(i = 0; i < nr_shards; i++) {
 			written = 0;
@@ -1892,7 +2031,7 @@ void create_encrypted_wallet(char* wallet_name, uint32_t type, char* wallet_data
 		vm_free(rs_data_blocks);
 		vm_free(dec_buff);
 
-		reed_solomon_release(rs);
+		_reed_solomon_release(rs);
 	}
 	//vm_file_mkdir
 }
@@ -1973,7 +2112,7 @@ bool load_encrypted_wallet(VMWSTR w_wallet_path, uint32_t* type, char** wallet_d
 		//nr_fec_blocks = n * parity_shards;
 		//nr_shards = nr_blocks + nr_fec_blocks;
 #endif
-		rs = reed_solomon_new(data_shards, parity_shards);
+		rs = _reed_solomon_new(data_shards, parity_shards);
 
         rs_errors = (unsigned char*)vm_calloc(nr_shards);
 		rs_data_blocks = (unsigned char**)vm_calloc(nr_shards * sizeof(unsigned char*));
@@ -1990,7 +2129,7 @@ bool load_encrypted_wallet(VMWSTR w_wallet_path, uint32_t* type, char** wallet_d
 			rs_data_blocks[i] = rs_file_data + i*rs_block_size;
 		}
 
-		rs_res = reed_solomon_reconstruct(rs, rs_data_blocks, rs_errors, nr_shards, rs_block_size);
+		rs_res = _reed_solomon_reconstruct(rs, rs_data_blocks, rs_errors, nr_shards, rs_block_size);
 		if (rs_res != 0)
 		{
 			// try the bitflipped ones
@@ -2007,7 +2146,7 @@ bool load_encrypted_wallet(VMWSTR w_wallet_path, uint32_t* type, char** wallet_d
 			}
 
 			// try reed solomon again
-			rs_res = reed_solomon_reconstruct(rs, rs_data_blocks, rs_errors, nr_shards, rs_block_size);
+			rs_res = _reed_solomon_reconstruct(rs, rs_data_blocks, rs_errors, nr_shards, rs_block_size);
 			if (rs_res != 0)
 			{
 				//too corrupt to recover but try anyway, worst case we get a wrong pass
@@ -2142,8 +2281,8 @@ cleanup:
 			rs_data_blocks[i] = rs_data + i*rs_block_size;
 		}
 
-		rs = reed_solomon_new(data_shards, parity_shards);
-		reed_solomon_encode2(rs, rs_data_blocks, nr_shards, rs_block_size);
+		rs = _reed_solomon_new(data_shards, parity_shards);
+		_reed_solomon_encode2(rs, rs_data_blocks, nr_shards, rs_block_size);
 
 		for(i = 0; i < nr_shards; i++) {
 			written = 0;
@@ -2167,7 +2306,7 @@ cleanup:
 		vm_free(rs_data_blocks);
 		vm_free(dec_buff);
 #endif
-		reed_solomon_release(rs);
+		_reed_solomon_release(rs);
 	}
 	//vm_file_mkdir
 }
@@ -3116,15 +3255,111 @@ bool sign_now(bool is_hd)
 	return res;
 }
 
-VMINT psbt_selection_wif_cb(VMWCHAR * file_path, VMINT wlen)
+
+bool sign_now_qr(bool is_hd)
 {
-	if (wlen > 0)
-	{
+	bool res = false;		
+	void* file_data = my_strdup(g_last_decoded_qr);
+	VMUINT file_size = strlen(g_last_decoded_qr);
+
+		uint32_t psbt_header_1 = 0;
+		uint32_t psbt_header_2 = 0;
+		void* signed_pstb_data = NULL;
+		size_t signed_pstb_len = 0;
+		bool is_signed = false;
+		VMFILE wr_handle = -1;
+		VMUINT nwrite = 0;
+		bool b_skip_b64_conv = false;
+		size_t dec_data_len = 0;
+		void* dec_data = NULL;
+
+		vm_time_t curr_time = {0};
+
+#if 0
+typedef struct vm_time_t {
+	VMINT year;		
+	VMINT mon;		/* month, begin from 1	*/
+	VMINT day;		/* day,begin from  1 */
+	VMINT hour;		/* house, 24-hour	*/
+	VMINT min;		/* minute	*/
+	VMINT sec;		/* second	*/
+} vm_time_t;
+#endif
+	char path[MAX_APP_NAME_LEN];
+
+	vm_get_time(&curr_time);
+
+	sprintf (path, "%c:\\btc_mre_wallet", mre_get_drv());
+	vm_ascii_to_ucs2(w_psbt_path, sizeof(w_psbt_path), path);
+	vm_file_mkdir(w_psbt_path);
+	sprintf (path, "%c:\\btc_mre_wallet\\psbt", mre_get_drv());
+	vm_ascii_to_ucs2(w_psbt_path, sizeof(w_psbt_path), path);
+	vm_file_mkdir(w_psbt_path);
+	sprintf (path, "%c:\\btc_mre_wallet\\psbt\\%d_%d_%d-%d_%d_%d", mre_get_drv(), curr_time.day, curr_time.mon, curr_time.year, curr_time.hour, curr_time.min, curr_time.sec);
+	vm_ascii_to_ucs2(w_psbt_path, sizeof(w_psbt_path), path);
+
+		if (file_size < 8)
+		{
+			return false;
+		}
+		
+		// wow, impressively ugly
+		psbt_header_1 = (uint32_t)*(uint32_t**)file_data;
+		psbt_header_2 = (uint32_t)*(uint32_t**)((uint8_t*)file_data+4);
+
+		// psbt
+		if (psbt_header_1 == 0x74627370)
+		{
+			b_skip_b64_conv = true;
+
+		} else if (psbt_header_1 == 0x33373037 && psbt_header_1 == 0x34373236) // 37 30 37 33 36 32 37 34
+		{
+			b_skip_b64_conv = true;
+		} 
+
+		if (b_skip_b64_conv == false)
+		{
+			dec_data_len = c_fromBase64Length((const uint8_t *)file_data, file_size, 0);
+			dec_data = vm_calloc(dec_data_len);
+			c_fromBase64((const char *)file_data, file_size, dec_data, dec_data_len, 0);
+
+			vm_free(file_data);
+
+			file_data = dec_data;
+			file_size = dec_data_len;
+		}
+
+		if (is_hd)
+		{
+			is_signed = sign_psbt_from_hd((uint8_t*)file_data, file_size, &signed_pstb_data, &signed_pstb_len);
+		} else {
+			is_signed = sign_psbt_from_pk((uint8_t*)file_data, file_size, &signed_pstb_data, &signed_pstb_len);
+		}
+		if (is_signed && signed_pstb_data && signed_pstb_len > 0)
+		{
+			unsigned short* ext = L".signed.psbt";
+			vm_wstrcat(w_psbt_path, (VMWSTR)ext);
+			wr_handle = vm_file_open(w_psbt_path, MODE_CREATE_ALWAYS_WRITE, TRUE);
+
+			vm_file_write(wr_handle, signed_pstb_data, signed_pstb_len, &nwrite);
+			vm_file_close(wr_handle);
+
+			memset(signed_pstb_data, 0, signed_pstb_len);
+			vm_free(signed_pstb_data);
+
+			res = true;
+		}
+
+	return res;
+}
+
+void sign_now_non_hd(bool (*sign_now_fptr)(bool is_hd))
+{
 		struct mre_nk_view* view;
 
 		bool is_signed = false;
-		vm_wstrcpy(w_psbt_path, file_path);
-		is_signed = sign_now(false);
+		
+		is_signed = sign_now_fptr(false);
 		if (is_signed)
 		{
 			view = &g_view[NK_MRE_VIEW_WALLET_PSBT_SIGNED];
@@ -3136,6 +3371,44 @@ VMINT psbt_selection_wif_cb(VMWCHAR * file_path, VMINT wlen)
 			set_view(NK_MRE_VIEW_WALLET_PSBT_ERROR);
 		}
 		update_gui();
+}
+
+void sign_now_hd(bool (*sign_now_fptr)(bool is_hd))
+{
+		struct mre_nk_view* view;
+
+		bool is_signed = false;
+		
+		is_signed = sign_now_fptr(true);
+		if (is_signed)
+		{
+			view = &g_view[NK_MRE_VIEW_WALLET_PSBT_SIGNED];
+			view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
+			set_view(NK_MRE_VIEW_WALLET_PSBT_SIGNED);
+		} else {
+			view = &g_view[NK_MRE_VIEW_WALLET_PSBT_ERROR];
+			view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
+			set_view(NK_MRE_VIEW_WALLET_PSBT_ERROR);
+		}
+		update_gui();
+}
+
+
+void sign_psbt_mnemo_qr_after()
+{
+		sign_now_hd(sign_now_qr);
+}
+void sign_psbt_wif_qr_after()
+{
+		sign_now_non_hd(sign_now_qr);
+}
+
+VMINT psbt_selection_wif_cb(VMWCHAR * file_path, VMINT wlen)
+{
+	if (wlen > 0)
+	{
+		vm_wstrcpy(w_psbt_path, file_path);
+		sign_now_non_hd(sign_now);
 	}
 	return 0;
 }
@@ -3144,22 +3417,8 @@ VMINT psbt_selection_mnemo_cb(VMWCHAR * file_path, VMINT wlen)
 {
 	if (wlen > 0)
 	{
-		struct mre_nk_view* view;
-
-		bool is_signed = false;
 		vm_wstrcpy(w_psbt_path, file_path);
-		is_signed = sign_now(true);
-		if (is_signed)
-		{
-			view = &g_view[NK_MRE_VIEW_WALLET_PSBT_SIGNED];
-			view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
-			set_view(NK_MRE_VIEW_WALLET_PSBT_SIGNED);
-		} else {
-			view = &g_view[NK_MRE_VIEW_WALLET_PSBT_ERROR];
-			view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
-			set_view(NK_MRE_VIEW_WALLET_PSBT_ERROR);
-		}
-		update_gui();
+		sign_now_hd(sign_now);
 	}
 	return 0;
 }
@@ -3307,6 +3566,20 @@ int recover_wif(int idx)
 	return 0;
 }
 
+void scan_qr_mnemo_after()
+{
+	vm_ascii_to_ucs2(w_mnemo_rec, sizeof(w_mnemo_rec), g_last_decoded_qr);
+	vm_input_text3(w_mnemo_rec, 511, VM_INPUT_METHOD_ALPHABETIC,
+                                     update_mnemo_rec);
+}
+
+void scan_qr_wif_after()
+{
+	vm_ascii_to_ucs2(w_wif_rec, sizeof(w_wif_rec), g_last_decoded_qr);
+	vm_input_text3(w_wif_rec, 52, VM_INPUT_METHOD_ALPHABETIC,
+                                     update_wif_rec);
+}
+
 int recover_pk(int idx)
 {
 
@@ -3317,6 +3590,597 @@ int recover_xpriv(int idx)
 {
 
 	return 0;
+}
+
+char* decode_qr(void *raw, size_t raw_sz, int width, int height)
+{
+	char* decoded_str = NULL;
+	zbar_image_scanner_t *scanner = NULL;
+	
+	zbar_image_t *image = NULL;
+	const zbar_symbol_t *symbol = NULL;
+	int n = 0;
+    /* create a reader */
+    scanner = zbar_image_scanner_create();
+
+    /* configure the reader */
+    zbar_image_scanner_set_config(scanner, 0, ZBAR_CFG_ENABLE, 1);
+
+    /* wrap image data */
+    image = zbar_image_create();
+    zbar_image_set_format(image, *(int*)"GREY");
+    zbar_image_set_size(image, width, height);
+    zbar_image_set_data(image, raw, width * height, zbar_image_free_data);
+
+    /* scan the image for barcodes */
+    n = zbar_scan_image(scanner, image);
+	dbg("[+] zbar_scan_image: %d\n", n);
+
+    /* extract results */
+    symbol = zbar_image_first_symbol(image);
+    for(; symbol; symbol = zbar_symbol_next(symbol)) {
+        /* do something useful with results */
+        zbar_symbol_type_t typ = zbar_symbol_get_type(symbol);
+        const char *data = zbar_symbol_get_data(symbol);
+		//unsigned int data_len = zbar_symbol_get_data_length(symbol);
+		//unsigned int decoded_str_len = strlen(data);
+        dbg("[+] decoded %s symbol \"%s\"\n",
+               zbar_get_symbol_name(typ), data);
+
+		decoded_str = vm_malloc(strlen(data)+1);
+		strcpy(decoded_str, data);
+		break;
+    }
+
+    /* clean up */
+	//memset(raw, 0, raw_sz);
+	//raw is freed by zbar_image_destroy(image);
+    zbar_image_destroy(image);
+    zbar_image_scanner_destroy(scanner);
+
+	return decoded_str;
+}
+
+void uyvyToGrey(unsigned char *dst, unsigned char *src,  unsigned int numberPixels)
+{
+	while(numberPixels > 0) 
+	{
+		uint8_t y1;
+		uint8_t y2;
+	      src++;
+	      y1=*(src++);
+	      src++;
+	      y2=*(src++);
+	      *(dst++)=y1;
+	      *(dst++)=y2;
+	      numberPixels-=2;
+	}
+}
+
+//void create_view_qr_text();
+bool is_digit(uint8_t chr)
+{
+	if (chr>=0x30 && chr<=0x39)
+	{
+		return true;
+	}
+	return false;
+}
+
+bool is_multi_part_qr(char* in_str, int* current_part, int* total_parts, char** ptr_out_str)
+{
+	int str_len = 0;
+	int i = 0;
+	int curr_part = 0;
+	int total_part = 0;
+	int curr_part_count = 0;
+	int total_part_count = 0;
+	uint8_t curr_part_str[4] = {0};
+	uint8_t total_part_str[4] = {0};
+	char* tmp_ptr = NULL;
+	char* out_str_tmp = in_str;
+
+	bool parsing_p = true;
+	bool parsing_curr = false;
+	bool parsing_of = false;
+	bool parsing_total = false;
+	bool parsing_space = false;
+	bool parsing_str = false;
+
+	if (in_str == NULL)
+	{
+		goto retfalse;
+	}
+	str_len = strlen(in_str);
+	for (i=0; i<str_len; i++)
+	{
+		if (parsing_p)
+		{
+			if(in_str[i] != 'p')
+			{
+				goto retfalse;
+			}
+			parsing_p = false;
+			parsing_curr = true;
+			continue;
+		} else if (parsing_curr) {
+			if(is_digit(in_str[i]) == false && curr_part_count == 0)
+			{
+				goto retfalse;
+			} else if (is_digit(in_str[i]) && curr_part_count < 3)
+			{
+				curr_part_str[curr_part_count] = in_str[i];
+				curr_part_count++;
+				continue;
+			} else
+			{
+				parsing_curr = false;
+				parsing_of = true;
+				i--;
+				continue;
+			}
+		} else if (parsing_of) {
+			if(in_str[i] != 'o' || in_str[i+1] != 'f') {
+				goto retfalse;
+			} else
+			{
+				parsing_of = false;
+				parsing_total = true;
+				i++;
+				continue;
+			}
+		} else if (parsing_total) {
+			if(is_digit(in_str[i]) == false && total_part_count == 0)
+			{
+				goto retfalse;
+			} else if (is_digit(in_str[i]) && total_part_count < 3)
+			{
+				total_part_str[total_part_count] = in_str[i];
+				total_part_count++;
+				continue;
+			} else
+			{
+				parsing_total = false;
+				parsing_space = true;
+				i--;
+				continue;
+			}
+		} else if (parsing_space) {
+			if(in_str[i] != ' ') {
+				goto retfalse;
+			} else
+			{
+				parsing_space = false;
+				parsing_str = true;
+				continue;
+			}
+		} else if (parsing_str) {
+			out_str_tmp = &in_str[i];
+			break;
+		} 
+	}
+
+	if (parsing_str)
+	{
+		tmp_ptr = NULL;
+		curr_part = strtol(curr_part_str, &tmp_ptr, 10);
+		
+		tmp_ptr = NULL;
+		total_part = strtol(total_part_str, &tmp_ptr, 10);
+
+		if (curr_part > total_part)
+		{
+			goto retfalse;
+		}
+		if (curr_part > 999 || curr_part < 1)
+		{
+			goto retfalse;
+		}
+		if (total_part > 999 || total_part < 1)
+		{
+			goto retfalse;
+		}
+
+		if (current_part)
+		{
+			*current_part = curr_part;
+		}
+		if (total_parts)
+		{
+			*total_parts = total_part;
+		}
+		if (ptr_out_str)
+		{
+			(*ptr_out_str) = out_str_tmp;
+		}
+		return true;
+	}
+
+retfalse:
+	if (current_part)
+	{
+		*current_part = 1;
+	}
+	if (total_parts)
+	{
+		*total_parts = 1;
+	}
+	if (ptr_out_str)
+	{
+		(*ptr_out_str) = in_str;
+	}
+	return false;
+}
+
+void reconstruct_multi_qr(char* tmp_qr_res)
+{
+	bool res = false;
+	bool is_complete = true;
+	int curr = 0;
+	int tot = 0;
+	char* ptr_str = NULL;
+	int i =0;
+
+	res = is_multi_part_qr(tmp_qr_res, &curr, &tot, &ptr_str);
+	
+	// single part
+	if (res == false)
+	{
+		if (g_last_decoded_qr)
+		{
+			memset(g_last_decoded_qr, 0, strlen(g_last_decoded_qr));
+			vm_free(g_last_decoded_qr);
+		}
+		g_last_decoded_qr = my_strdup(tmp_qr_res);
+	} else {
+		if (g_last_decoded_qr_arr[curr])
+		{
+			memset(g_last_decoded_qr_arr[curr], 0, strlen(g_last_decoded_qr_arr[curr]));
+			vm_free(g_last_decoded_qr_arr[curr]);
+		}
+		g_last_decoded_qr_arr[curr] = my_strdup(ptr_str);
+		 
+		// check if arr is complete
+		is_complete = true;
+		for (i=1; i<=tot; i++)
+		{
+			if (g_last_decoded_qr_arr[i] == NULL)
+			{
+				is_complete = false;
+				break;
+			}
+		}
+		if (is_complete)
+		{
+			int total_len = 0;
+			for (i=1; i<=tot; i++)
+			{
+				total_len += strlen(g_last_decoded_qr_arr[i]);
+			}
+			if (g_last_decoded_qr)
+			{
+				memset(g_last_decoded_qr, 0, strlen(g_last_decoded_qr));
+				vm_free(g_last_decoded_qr);
+			}
+			g_last_decoded_qr = vm_calloc(total_len+1);
+			for (i=1; i<=tot; i++)
+			{
+				strcat(g_last_decoded_qr, g_last_decoded_qr_arr[i]);
+			}
+		}
+	}
+
+
+	//g_last_decoded_qr_arr
+
+	//g_last_decoded_qr
+}
+
+void cam_message_callback(vm_cam_notify_data_t* notify_data, void* user_data)
+{
+	int res = 0;
+	if (notify_data != NULL)
+	{
+		char* tmp_qr_res = NULL;
+		vm_camera_para_struct para;
+		bool rot = false;
+		vm_cam_size_t osd = {0,0};
+		void* osd_buff = NULL;
+		void* layer_buffer = NULL;
+		vm_cam_frame_data_t frame;
+		VM_CAMERA_HANDLE cam_handle = notify_data->handle;
+		dbg("[+] cam_message_callback - msg: %d - status: %d\n", notify_data->cam_message, notify_data->cam_status);
+  		switch (notify_data->cam_message)
+  		{
+			
+		case VM_CAM_CAPTURE_DONE:
+		case VM_CAM_CAPTURE_ABORT:
+			break;
+		case VM_CAM_PREVIEW_START_DONE:
+			clean_last_decoded_qr(); // g_last_decoded_qr
+			dbg("[+] clean_last_decoded_qr\n");
+			break;
+
+		case VM_CAM_PREVIEW_STOP_ABORT:
+		case VM_CAM_PREVIEW_STOP_DONE:
+			stop_camera();
+			if (g_last_decoded_qr)
+			{
+				if (g_after_camera_action)
+				{
+					g_after_camera_action();
+				}
+			}
+			break;
+		case VM_CAM_PREVIEW_START_ABORT:
+			stop_preview();
+			break;
+
+  		case VM_CAM_PREVIEW_FRAME_RECEIVED:
+			dbg("[+] VM_CAM_PREVIEW_FRAME_RECEIVED\n");
+			if (vm_camera_get_frame(cam_handle, &frame) == VM_CAM_SUCCESS)
+  			{
+  				VMUINT grey_app_frame_data_size = 0;
+				VMUINT uyvy_app_frame_data_size = 0;
+  				VMUINT8* grey_app_frame_data = NULL;
+  				VMUINT8* uyvy_app_frame_data = NULL;
+				VMUINT row_pixel = frame.row_pixel;
+				VMUINT col_pixel = frame.col_pixel;
+  				
+				dbg("[+] frame.rgbformat: %d\n", frame.pixtel_format);
+				if (frame.pixtel_format == PIXTEL_UYUV422)
+				{
+					uyvy_app_frame_data = frame.pixtel_data;
+					uyvy_app_frame_data_size = row_pixel * col_pixel * 4;
+					grey_app_frame_data_size = row_pixel * col_pixel * 2;
+					grey_app_frame_data = vm_malloc(grey_app_frame_data_size);
+					uyvyToGrey(grey_app_frame_data, uyvy_app_frame_data, grey_app_frame_data_size);
+					tmp_qr_res = decode_qr(grey_app_frame_data, grey_app_frame_data_size, col_pixel, row_pixel);
+					//avoid double free, grey_app_frame_data is freed by decode_qr->zbar_image_destroy(image);
+					//vm_free(grey_app_frame_data);
+					if (tmp_qr_res)
+					{
+						// part1of2 xyz
+						reconstruct_multi_qr(tmp_qr_res);
+						memset(tmp_qr_res, 0, strlen(tmp_qr_res));
+						vm_free(tmp_qr_res);
+					}
+					// g_last_decoded_qr is set by reconstruct_multi_qr
+					if (g_last_decoded_qr)
+					{
+						dbg("[+] g_last_decoded_qr: %s\n", g_last_decoded_qr);
+						stop_preview();
+					} else {
+						dbg("[+] no QR found (yet) or multiple part scan in progress\n");
+					}
+				}
+  				break;
+				
+  			}
+
+			default:
+				break;
+		}
+	}
+}
+
+void app_set_capture_size(VM_CAMERA_HANDLE camera_handle)
+{
+	vm_cam_size_t* ptr = NULL;
+	VMUINT size = 0, i = 0;
+	int res = 0;
+	if (vm_camera_get_support_capture_size(camera_handle, &ptr, &size) == VM_CAM_SUCCESS)
+	{
+		vm_cam_size_t my_cam_size;
+		for (i = 0; i < size; i++)
+		{
+			my_cam_size.width  = (ptr + i)->width;
+			my_cam_size.height =(ptr + i) ->height;
+			dbg("[+] vm_camera_get_support_capture_size: %dx%d\n", my_cam_size.height, my_cam_size.width);
+			
+			res = vm_camera_set_capture_size(camera_handle, &my_cam_size);
+			dbg("[+] vm_camera_set_capture_size: %d -> %dx%d\n", res, my_cam_size.height, my_cam_size.width);
+		}
+	}
+	if (vm_camera_get_support_preview_size(camera_handle, &ptr, &size) == VM_CAM_SUCCESS)
+	{
+		vm_cam_size_t my_cam_size;
+		for (i = 0; i < size; i++)
+		{
+			my_cam_size.width  = (ptr + i)->width;
+			my_cam_size.height =(ptr + i) ->height;
+			dbg("[+] vm_camera_get_support_preview_size: %dx%d\n", my_cam_size.height, my_cam_size.width);
+			
+			res = vm_camera_set_preview_size(camera_handle, &my_cam_size);
+			dbg("[+] vm_camera_set_preview_size: %d -> %dx%d\n", res, my_cam_size.height, my_cam_size.width);
+		}
+	}
+}
+
+static void draw_scanning(void) {
+	int x1,x2,x3,x4,x5,x6,x7;						/* string's x coordinate */
+	int y;						/* string's y coordinate */
+	int wstr_len1,wstr_len2,wstr_len3,wstr_len4,wstr_len5,wstr_len6,wstr_len7;				/* string's length */
+	vm_graphic_color color;		/* use to set screen and text color */
+
+	unsigned short* s1 = L"[Scan the QR code now]";
+	unsigned short* s2 = L"Due to OS limitations";
+	unsigned short* s3 = L"preview only works once";
+	unsigned short* s4 = L"- BUT CAMERA IS ACTIVE -";
+	unsigned short* s5 = L"SCAN THE QR CODE NOW";
+	unsigned short* s6 = L"(or press any key to exit)";
+	unsigned short* s7 = L"(or restart app for preview)";
+
+	/* calculate string length*/ 
+	wstr_len1 = vm_graphic_get_string_width((VMWSTR)s1);
+	wstr_len2 = vm_graphic_get_string_width((VMWSTR)s2);
+	wstr_len3 = vm_graphic_get_string_width((VMWSTR)s3);
+	wstr_len4 = vm_graphic_get_string_width((VMWSTR)s4);
+	wstr_len5 = vm_graphic_get_string_width((VMWSTR)s5);
+	wstr_len6 = vm_graphic_get_string_width((VMWSTR)s6);
+	wstr_len7 = vm_graphic_get_string_width((VMWSTR)s7);
+
+	/* calculate string's coordinate */
+	x1 = (vm_graphic_get_screen_width() - wstr_len1) / 2;
+	x2 = (vm_graphic_get_screen_width() - wstr_len2) / 2;
+	x3 = (vm_graphic_get_screen_width() - wstr_len3) / 2;
+	x4 = (vm_graphic_get_screen_width() - wstr_len4) / 2;
+	x5 = (vm_graphic_get_screen_width() - wstr_len5) / 2;
+	x6 = (vm_graphic_get_screen_width() - wstr_len6) / 2;
+	x7 = (vm_graphic_get_screen_width() - wstr_len7) / 2;
+	y = (vm_graphic_get_screen_height() - vm_graphic_get_character_height()) / 2;
+	
+	/* set screen color */
+	color.vm_color_565 = VM_COLOR_WHITE;
+	vm_graphic_setcolor(&color);
+	
+	/* fill rect with screen color */
+	vm_graphic_fill_rect_ex(layer_hdl[0], 0, 0, vm_graphic_get_screen_width(), vm_graphic_get_screen_height());
+	
+	/* set text color */
+	color.vm_color_565 = VM_COLOR_BLUE;
+	vm_graphic_setcolor(&color);
+	
+	/* output text to layer */
+	vm_graphic_textout_to_layer(layer_hdl[0],x1, y-60, (VMWSTR)s1, wstr_len1);
+	vm_graphic_textout_to_layer(layer_hdl[0],x2, y-30, (VMWSTR)s2, wstr_len2);
+	vm_graphic_textout_to_layer(layer_hdl[0],x3, y, (VMWSTR)s3, wstr_len3);
+	vm_graphic_textout_to_layer(layer_hdl[0],x4, y+30, (VMWSTR)s4, wstr_len4);
+	vm_graphic_textout_to_layer(layer_hdl[0],x5, y+60, (VMWSTR)s5, wstr_len5);
+	vm_graphic_textout_to_layer(layer_hdl[0],x6, y+90, (VMWSTR)s6, wstr_len6);
+	vm_graphic_textout_to_layer(layer_hdl[0],x7, y+120, (VMWSTR)s7, wstr_len7);
+	
+	/* flush the screen with text data */
+	vm_graphic_flush_layer(layer_hdl, 1);
+}
+
+int scan_qr(int a)
+{
+	vm_cam_frame_data_t frame_data;
+	vm_cam_frame_raw_data_t raw_frame_data;
+	vm_cam_capture_data_t capture_data;
+	VMINT res = 0;
+	VM_CAMERA_HANDLE handle_ptr = 0;
+	VM_CAMERA_STATUS cam_status = 0;
+	vm_cam_size_t my_cam_size;
+	VMUINT8 *buffer;
+	void* all1 = NULL;
+	void* all2 = NULL;
+	int i = 0;
+	int layer_count = 0;
+	vm_camera_para_struct para;
+	
+	VMINT cid = vm_camera_get_main_camera_id();
+	
+	if (cid < 0)
+	{
+		dbg("[-] vm_camera_get_main_camera_id failed\n");
+		return 0;
+	}
+	dbg("[+] vm_camera_get_main_camera_id: %d\n", cid);
+
+	memset(&frame_data, 0, sizeof(frame_data));
+	memset(&raw_frame_data, 0, sizeof(raw_frame_data));
+	memset(&capture_data, 0, sizeof(capture_data));
+
+	res = vm_create_camera_instance(cid, &handle_ptr);
+	if (res != VM_CAM_SUCCESS)
+	{
+		dbg("[-] vm_camera_get_main_camera_id failed: %d\n", res);
+		goto cleanup;
+		return 0;
+	}
+	dbg("[+] vm_create_camera_instance: %d -> %p\n", res, handle_ptr);
+
+	// important for preview, but it only works once...
+	vm_camera_enable_osd_layer(TRUE);
+	vm_camera_set_lcd_update(TRUE);
+
+	//app_set_capture_size(handle_ptr);
+	my_cam_size.width  = 240;
+	my_cam_size.height = 320;
+	res = vm_camera_set_preview_size(handle_ptr, &my_cam_size);
+	dbg("[+] vm_camera_set_preview_size: %d -> %dx%d\n", res, my_cam_size.height, my_cam_size.width);
+
+	// make it slow so we have time to decode the qr
+	vm_camera_set_preview_fps(handle_ptr, 1);
+
+#if 0
+	// check if there is enough mem
+	//vm_camera_use_anonymous_memory(TRUE);
+
+	all1 = vm_malloc_nc(0x25800*2); // -> 320*240*4
+	dbg("[+] vm_malloc_nc: %d\n", all1);
+	all2 = vm_malloc_nc(0x25800*2);
+	dbg("[+] vm_malloc_nc: %d\n", all2);
+
+	vm_free(all1);
+	vm_free(all2);
+#endif
+
+	res = vm_camera_register_notify(handle_ptr, cam_message_callback, NULL);
+	dbg("[+] vm_camera_register_notify: %d\n", res);
+
+	if (layer_hdl[0] != -1)
+	{
+		// paint something
+		draw_scanning();
+
+		// then delete every layer
+		// or camera preview will not start
+		// nor we will receive any camera frame
+		res = vm_graphic_delete_layer(layer_hdl[0]); 
+		dbg("[+] vm_graphic_delete_layer: %d -> %d\n", res, layer_hdl[0]);
+	}
+
+	g_callback_none = true;
+	vm_reg_keyboard_callback (nk_mre_handle_key_event_none);
+	
+	res = vm_camera_preview_start(handle_ptr);
+	dbg("[+] vm_camera_preview_start: %d\n", res);
+
+	if (res != VM_CAM_SUCCESS)
+	{
+		g_callback_none = false;
+		vm_reg_keyboard_callback (nk_mre_handle_key_event);
+		goto cleanup;
+	} else {
+		g_camera_handle = handle_ptr;
+		g_camera_preview = true;
+		return 0;
+	}
+
+cleanup:
+	res = vm_camera_preview_stop(handle_ptr);
+	dbg("[+] vm_camera_preview_stop: %d\n", res);
+	res = vm_release_camera_instance(handle_ptr);
+	dbg("[+] vm_release_camera_instance: %d\n", res);
+
+	return 0;
+}
+
+int scan_qr_mnemo(int idx)
+{
+	g_after_camera_action = scan_qr_mnemo_after;
+	scan_qr(0);
+}
+
+int scan_qr_wif(int idx)
+{
+	g_after_camera_action = scan_qr_wif_after;
+	scan_qr(0);
+}
+
+int sign_psbt_wif_qr(int idx)
+{
+	g_after_camera_action = sign_psbt_wif_qr_after;
+	scan_qr(0);
+}
+
+int sign_psbt_mnemo_qr(int idx)
+{
+	g_after_camera_action = sign_psbt_mnemo_qr_after;
+	scan_qr(0);
 }
 
 int go_back(int idx)
@@ -3346,6 +4210,7 @@ int clean_and_exit(int a)
 	memset(w_save_name, 0, sizeof(w_save_name));
 	memset(w_psbt_path, 0, sizeof(w_psbt_path));
 
+	clean_last_decoded_qr();
 
 	cleanup_sensitive_data();
 
@@ -3396,14 +4261,18 @@ void create_view_recover_wallet(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "12-24 words (BIP 39)", 1, 0, recover_mnemo);
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "WIF", 1, 0, recover_wif);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "12-24 words (text)", 1, 0, recover_mnemo);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "WIF (text)", 1, 0, recover_wif);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "12-24 words (QR)", 1, 0, scan_qr_mnemo);
+	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "WIF (QR)", 1, 0, scan_qr_wif);
 	//comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "32 byte priv key", 1, 0, recover_pk);
 	//comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Root xpriv", 1, 0, recover_xpriv);
 
 	view->components = vm_monitored_calloc(7*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
+	view->components[2] = comp_button3;
+	view->components[3] = comp_button4;
 	//view->components[4] = comp_button5;
 	//view->components[5] = comp_button6;
 	//view->components[3] = comp_button4;
@@ -3682,7 +4551,7 @@ void create_view_psbt_signed(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "PSBT was signed and saved correctly (<psbt_name>.signed.psbt). To finalize the PSBT, run 'bitcoin-cli utxoupdatepsbt <b64>' and 'bitcoin-cli finalizepsbt <b64>'.", 0, 0, NULL);
+	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "PSBT was signed and saved correctly (<psbt_filename or date>.signed.psbt). To finalize the PSBT, run 'bitcoin-cli utxoupdatepsbt <b64>' and 'bitcoin-cli finalizepsbt <b64>'.", 0, 0, NULL);
 	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
 	view->components = vm_monitored_calloc(3*sizeof(struct mre_nk_component *));
@@ -3733,20 +4602,22 @@ void create_view_wallet_main_wif_2(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT", 1, 0, sign_psbt_wif);
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub key", 1, 0, display_pub);
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display priv key", 1, 0, display_priv);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub key", 1, 0, save_pub);
-	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv key (RISKY)", 1, 0, save_priv);
-	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (file)", 1, 0, sign_psbt_wif);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (QR)", 1, 0, sign_psbt_wif_qr);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub key", 1, 0, display_pub);
+	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display priv key", 1, 0, display_priv);
+	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub key", 1, 0, save_pub);
+	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv key (RISKY)", 1, 0, save_priv);
+	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
-	view->components = vm_monitored_calloc(8*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(9*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
 	view->components[2] = comp_button3;
 	view->components[3] = comp_button4;
 	view->components[4] = comp_button5;
 	view->components[5] = comp_button6;
+	view->components[6] = comp_button7;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -3769,20 +4640,22 @@ void create_view_wallet_main_3(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT", 1, 0, sign_psbt_mnemo);
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub info", 1, 0, display_xpub);
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display prv info", 1, 0, display_xpriv);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub info", 1, 0, save_xpub);
-	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv info (RISKY)", 1, 0, save_xpriv);
-	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT file", 1, 0, sign_psbt_mnemo);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (QR)", 1, 0, sign_psbt_mnemo_qr);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub info", 1, 0, display_xpub);
+	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display prv info", 1, 0, display_xpriv);
+	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub info", 1, 0, save_xpub);
+	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv info (RISKY)", 1, 0, save_xpriv);
+	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
-	view->components = vm_monitored_calloc(8*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(9*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
 	view->components[2] = comp_button3;
 	view->components[3] = comp_button4;
 	view->components[4] = comp_button5;
 	view->components[5] = comp_button6;
+	view->components[6] = comp_button7;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -3883,6 +4756,7 @@ void create_view_wallet_action(){
 	struct mre_nk_component *comp_button2;
 	struct mre_nk_component *comp_button3;
 	struct mre_nk_component *comp_button4;
+	struct mre_nk_component *comp_button5;
 
 	struct mre_nk_view* view;
 	char str_title[] = "Wallet actions";
@@ -3898,16 +4772,40 @@ void create_view_wallet_action(){
 	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Recover wallet", 1, 0, recover_wallet);
 	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Create wallet", 1, 0, create_wallet);
 	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
+	//comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Scan QR", 1, 0, scan_qr);
 
-	view->components = vm_monitored_calloc(5*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(6*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
 	view->components[2] = comp_button3;
 	view->components[3] = comp_button4;
+	//view->components[4] = comp_button5;
 	//view->components[3] = NULL; // calloc does the job
 }
 
+// it leaks mem, cause we reallocate a new one at each test, but whatever
+// it doesn't go into production, it will be #if 0
+void create_view_qr_text()
+{
+	struct mre_nk_component *comp_label1;
+	
+	struct mre_nk_view* view;
+	char str_gen_title[] = "Test";
 
+	view = &g_view[NK_MRE_VIEW_QR_TEST];
+	view->id = NK_MRE_VIEW_QR_TEST;
+	view->previous_id = NK_MRE_VIEW_WALLET_ACTION;
+	
+	view->title = vm_monitored_calloc(strlen(str_gen_title)+1);
+	strcpy(view->title, str_gen_title);
+
+	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, g_last_decoded_qr, 0, 0, NULL);
+
+	view->components = vm_monitored_calloc(2*sizeof(struct mre_nk_component *));
+	view->components[0] = comp_label1;
+}
+
+#if 0
 void create_view_testtest(){
 
 	VMSTR imsi = NULL;
@@ -3958,6 +4856,7 @@ void create_view_testtest(){
 	view->components[5] = NULL;//comp_label6;
 	//view->components[4] = NULL; // calloc does the job
 }
+#endif
 
 static int g_current_view = NK_MRE_VIEW_NONE;
 
@@ -4110,10 +5009,6 @@ void populate_view(){
 	}
 
 }
-void
-nk_mre_handle_key_event_none(VMINT event, VMINT keycode){
-
-}
 
 void update_gui(){
 	/*Declare context*/
@@ -4225,7 +5120,7 @@ void initiate_nk_gui(void){
 	create_view_sensitive_save();
 	create_view_sensitive_saved();
 
-	create_view_testtest();
+	//create_view_testtest();
 	//create_view_wallet();
 	//...
 	//create_view_xyz();

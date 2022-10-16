@@ -51,7 +51,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories=".\include;.\include\service;.\include\component;.\ResID;.\src\app\widget;.\src\app\launcher;.\src\app\wallpaper;.\src\app\screen_lock;.\include\service;.\include\component;.\src\framework;.\src\framework\ui_core\base;.\src\framework\ui_core\mvc;.\src\framework\ui_core\pme;.\src\framework\mmi_core;.\src\ui_engine\vrt\interface;.\src\component;.\src\ui_engine\framework\xml;.\;.;.\src\tiny-AES-c;.\src\uBitcoin\src;.\src\uBitcoin\src\utility;.\src\uBitcoin\src\utility\trezor;.\src\reedsolomon-c;.\src\QRCode"
+				AdditionalIncludeDirectories=".\include;.\include\service;.\include\component;.\ResID;.\src\app\widget;.\src\app\launcher;.\src\app\wallpaper;.\src\app\screen_lock;.\include\service;.\include\component;.\src\framework;.\src\framework\ui_core\base;.\src\framework\ui_core\mvc;.\src\framework\ui_core\pme;.\src\framework\mmi_core;.\src\ui_engine\vrt\interface;.\src\component;.\src\ui_engine\framework\xml;.\;.;.\src\tiny-AES-c;.\src\uBitcoin\src;.\src\uBitcoin\src\utility;.\src\uBitcoin\src\utility\trezor;.\src\reedsolomon-c;.\src\QRCode;.\src\zbar;.\src\zbar\qrcode;.\src\zbar\decoder"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;_CONSOLE;_MINIBitcoinMRE_LIB_;_USE_MINIBitcoinMREENTRY;_NOUNIX_;_FOR_WNC;__MRE_SDK__"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -542,11 +542,11 @@
 				Name="reedsolomon-c"
 				>
 				<File
-					RelativePath=".\src\reedsolomon-c\rs.c"
+					RelativePath=".\src\reedsolomon-c\reedsolomon.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\reedsolomon-c\rs.h"
+					RelativePath=".\src\reedsolomon-c\reedsolomon.h"
 					>
 				</File>
 			</Filter>
@@ -554,13 +554,217 @@
 				Name="QRCode"
 				>
 				<File
-					RelativePath=".\src\QRCode\qrcode.c"
+					RelativePath=".\src\QRCode\qrcode_encoder.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\QRCode\qrcode.h"
+					RelativePath=".\src\QRCode\qrcode_encoder.h"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="zbar"
+				>
+				<File
+					RelativePath=".\src\zbar\config.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\config.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\convert.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\debug.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\decoder.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\decoder.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\error.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\error.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\event.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\image.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\image.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\img_scanner.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\img_scanner.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\mutex.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\processor.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\processor.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\qrcode.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\refcnt.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\refcnt.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\scanner.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\svg.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\svg.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\symbol.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\symbol.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\thread.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\timer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\video.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\video.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\window.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\window.h"
+					>
+				</File>
+				<File
+					RelativePath=".\src\zbar\zbar.h"
+					>
+				</File>
+				<Filter
+					Name="qrcode"
+					>
+					<File
+						RelativePath=".\src\zbar\qrcode\bch15_5.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\bch15_5.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\binarize.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\binarize.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\isaac.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\isaac.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\qrdec.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\qrdec.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\qrdectxt.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\rs.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\rs.h"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\util.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\qrcode\util.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="decoder"
+					>
+					<File
+						RelativePath=".\src\zbar\decoder\qr_finder.c"
+						>
+					</File>
+					<File
+						RelativePath=".\src\zbar\decoder\qr_finder.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="processor"
+					>
+					<File
+						RelativePath=".\src\zbar\processor\lock.c"
+						>
+					</File>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter

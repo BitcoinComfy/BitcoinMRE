@@ -31,6 +31,8 @@ void vm_main(void)
 	#ifdef MRE_LOG_ON /* if loging is on */
 		VMCHAR log_file[MRE_STR_SIZE_MAX] = {0};
 	    
+		mre_set_drv();
+
 		/* finding drive for saving log information in "sample1.log" file name */
 		if ((drv = vm_get_removable_driver()) < 0)	
 		{	
@@ -40,9 +42,7 @@ void vm_main(void)
 		sprintf(log_file, "%c:\\mre.log", drv);
 		vm_log_init(log_file, VM_DEBUG_LEVEL);			
 	#endif
-
-	//Setting the workable drive here at once (May reduce checks in the future
-	// by storing it to a global variable . May change as removable media exists)
+		
 	mre_set_drv();
     
 	vm_log_debug ("vm_main function starts");
