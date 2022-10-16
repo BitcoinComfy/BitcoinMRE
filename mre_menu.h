@@ -26,8 +26,8 @@ enum views {
 	NK_MRE_VIEW_WALLET_CREATION_3,	// display seed
 	NK_MRE_VIEW_WALLET_CREATION_4,	// create pin
 	NK_MRE_VIEW_WALLET_CREATION_5,	// wallet name -> save
-	NK_MRE_VIEW_WALLET_PKEY,		// display private key
-	NK_MRE_VIEW_WALLET_PKEY_CONFIRM,// confirm private key
+	//NK_MRE_VIEW_WALLET_PKEY,		// display private key
+	//NK_MRE_VIEW_WALLET_PKEY_CONFIRM,// confirm private key
 	NK_MRE_VIEW_WALLET_PIN,			// insert pin
 	NK_MRE_VIEW_WALLET_PIN_CONFIRM,	// confirm pin
 	NK_MRE_VIEW_WALLET_MAIN_1,		// extra passphrase
@@ -40,12 +40,16 @@ enum views {
 	NK_MRE_VIEW_DISPLAY_XPUB_QR,	// display xpub qr
 	NK_MRE_VIEW_SAVE_XPUB_SDCARD,	// save xpub on sdcard
 	NK_MRE_VIEW_SIGN_PSBT,			// sign PSBT
-	NK_MRE_VIEW_WALLET_PSBT_SIGNED, // psbt signed and saved
+	NK_MRE_VIEW_WALLET_PSBT_SIGNED, // psbt signed and saved, show if save or qr
 	NK_MRE_VIEW_WALLET_PSBT_ERROR,	// psbt signing error
 	NK_MRE_VIEW_SENSITIVE_SAVE, // warning about saving sensitive info (priv keys)
 	NK_MRE_VIEW_SENSITIVE_SAVED,	// sensitive data saved
+	NK_MRE_VIEW_DISPLAY_SINGLE_QR,	// display single qr
+	NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR,	// display multi pubkeys qr
+	NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR,	// display animated signed psbt qr
 
-	NK_MRE_VIEW_QR_TEST,			// read qr decoded text
+	//NK_MRE_VIEW_QR_TEST,			// read qr decoded text
+	//NK_MRE_VIEW_TEST_QR_DISPLAY,	// test qr encoding / display
 
 	// implement later on...maybe   //
 	NK_MRE_VIEW_SETTINGS,			// settings (Internet/SMS RPC servers)

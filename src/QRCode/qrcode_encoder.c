@@ -737,6 +737,7 @@ static int8_t encodeDataCodewords(BitBucket *dataCodewords, const uint8_t *text,
     return mode;
 }
 
+
 static void performErrorCorrection(uint8_t version, uint8_t ecc, BitBucket *data) {
     
     // See: http://www.thonky.com/qr-code-tutorial/structure-final-message
@@ -757,20 +758,25 @@ static void performErrorCorrection(uint8_t version, uint8_t ecc, BitBucket *data
     
     uint8_t shortDataBlockLen = shortBlockLen - blockEccLen;
     
-    //uint8_t result[data->capacityBytes];
-    //memset(result, 0, sizeof(result));
-    
-	uint8_t i = 0;
+	uint8_t* result = NULL;
+	uint8_t* coeff = NULL;
+
     uint16_t offset = 0;
     uint8_t *dataBytes = data->data;
 
-    uint8_t blockSize = 0;
+	uint8_t i = 0;
+
+	uint8_t blockSize = 0;
 	uint8_t blockNum = 0;
 
-	uint8_t* result = vm_calloc(data->capacityBytes);
-    uint8_t* coeff = vm_calloc(blockEccLen);
+    result = vm_calloc(data->capacityBytes);
+    //memset(result, 0, data->capacityBytes);
     
+    coeff = vm_calloc(blockEccLen);
     rs_init(blockEccLen, coeff);
+    
+    offset = 0;
+    dataBytes = data->data;
     
     // Interleave all short blocks
     for (i = 0; i < shortDataBlockLen; i++) {
@@ -851,18 +857,19 @@ int8_t qrcode_initBytes(QRCode *qrcode, uint8_t *modules, uint8_t version, uint8
     uint8_t i = 0;
 	uint8_t padByte = 0;
 
-    struct BitBucket codewords;
+	struct BitBucket codewords = {0};
 	BitBucket modulesGrid;
     BitBucket isFunctionGrid;
 	uint8_t* isFunctionGridBytes = NULL;
-    uint8_t* codewordBytes = vm_calloc(bb_getBufferSizeBytes(moduleCount));
+	size_t sizeof_codewordBytes = bb_getBufferSizeBytes(moduleCount);
+    uint8_t* codewordBytes = vm_calloc(sizeof_codewordBytes);
 
     qrcode->version = version;
     qrcode->size = size;
     qrcode->ecc = ecc;
     qrcode->modules = modules;
     
-    bb_initBuffer(&codewords, codewordBytes, (int32_t)sizeof(codewordBytes));
+    bb_initBuffer(&codewords, codewordBytes, (int32_t)sizeof_codewordBytes);
     
     // Place the data code words into the buffer
     mode = encodeDataCodewords(&codewords, data, length, version);

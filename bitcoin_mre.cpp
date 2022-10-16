@@ -20,6 +20,8 @@ static char* g_acc_ext_derivationpath = NULL;
 static bool g_hardened = false;
 static char* g_xpriv = NULL;
 static char* g_xpub = NULL;
+static char* g_acc_ext_pub = NULL;
+static char* g_recv_pubs[100] = {0};
 
 static PrivateKey *g_private_key;
 static char* g_wif = NULL;
@@ -52,6 +54,42 @@ extern "C" bool is_wif_valid(char* wif)
 	} else {
 		return false;
 	}
+}
+
+extern "C" char* get_acc_ext_pub()
+{
+	return g_acc_ext_pub;	
+}
+
+extern "C" void set_acc_ext_pub(char* str)
+{
+	int str_len = strlen(str)+1;
+	char* old_alloc = g_acc_ext_pub;
+	g_acc_ext_pub = (char*)vm_calloc(str_len);
+	strcpy(g_acc_ext_pub, str);
+	if (old_alloc)
+	{
+		memset(old_alloc, 0, strlen(old_alloc));
+		vm_free(old_alloc);
+	}	
+}
+
+extern "C" char* get_recv_pubs(int idx)
+{
+	return g_recv_pubs[idx];	
+}
+
+extern "C" void set_recv_pubs(char* str, int idx)
+{
+	int str_len = strlen(str)+1;
+	char* old_alloc = g_recv_pubs[idx];
+	g_recv_pubs[idx] = (char*)vm_calloc(str_len);
+	strcpy(g_recv_pubs[idx], str);
+	if (old_alloc)
+	{
+		memset(old_alloc, 0, strlen(old_alloc));
+		vm_free(old_alloc);
+	}	
 }
 
 extern "C" char* get_wif()
@@ -293,6 +331,8 @@ extern "C" void derive_xpriv()
 		acc_ext_priv.xprv(acc_ext_priv_str, sizeof(acc_ext_priv_str));
 		acc_ext_priv.xpub(acc_ext_pub_str, sizeof(acc_ext_pub_str));
 
+		set_acc_ext_pub(acc_ext_pub_str);
+
 		acc_ext_priv.~HDPrivateKey();
 
 		has_acc_ext = true;
@@ -510,6 +550,8 @@ extern "C" void derive_xpriv()
 		
 		strcat(pub_info_str, address);
 		strcat(pub_info_str, NEW_LINE);
+		
+		set_recv_pubs(address, idx);
 
 		priv_child0.~HDPrivateKey();
 	}
@@ -837,6 +879,7 @@ cleanup:
 
 extern "C" void cleanup_sensitive_data()
 {
+	int i = 0;
 	g_hardened = false;
 	g_type = TYPE_MNEMONIC;
 	if (g_wif)
@@ -890,6 +933,30 @@ extern "C" void cleanup_sensitive_data()
 		memset(g_xpub, 0, strlen(g_xpub));
 		vm_free(g_xpub);
 		g_xpub = NULL;
+	}
+
+	if (g_acc_ext_pub)
+	{
+		memset(g_acc_ext_pub, 0, strlen(g_acc_ext_pub));
+		vm_free(g_acc_ext_pub);
+		g_acc_ext_pub = NULL;
+	}
+	
+	if (g_acc_ext_pub)
+	{
+		memset(g_acc_ext_pub, 0, strlen(g_acc_ext_pub));
+		vm_free(g_acc_ext_pub);
+		g_acc_ext_pub = NULL;
+	}
+
+	for (i =0; i<100; i++)
+	{
+		if (g_recv_pubs[i])
+		{
+			memset(g_recv_pubs[i], 0, strlen(g_recv_pubs[i]));
+			vm_free(g_recv_pubs[i]);
+			g_recv_pubs[i] = NULL;
+		}
 	}
 
 	if (g_root_xprivate_key != NULL)

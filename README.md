@@ -101,6 +101,10 @@ Once the seed is generated, chacha-drbg is used as CSPRNG.
 
 #### How do I save the XPUB?
 
+Open, recover or create a wallet, choose the derivation scheme, the optional passphrase and then Display Account Extended Public Key (QR). Then scan the QR with Specter wallet.
+
+If you don't want to use Camera / QR, you can export it using the SD Card.
+
 Open, recover or create a wallet, choose the derivation scheme, the optional passphrase and then "Save Public Info". It will create a file on the SD card with all the XPUBs that you can import on Specter for example.
 
 Public keys will be saved in btc_mre_wallet/xpub/ (if using derivations) or btc_mre_wallet/pub/ (if using a single keypar).
@@ -113,7 +117,11 @@ Do not save private keys on the SD Card unless you have a really good necessity.
 
 I use a full Bitcoin Core node + Specter.
 
-Move the PSBT inside the SD Card folder called: btc_mre_wallet/psbt/
+Once you created for example the Unsigned Transaction from Specter wallet, you can scan it from the MRE app using: "Sign PSBT (QR)"
+
+If you don't want to use Camera / QR, you can export it to file, and move the PSBT inside the SD Card folder called: btc_mre_wallet/psbt/
+
+Then you can sign it from the MRE app using "Sign PSBT (file)".
 
 #### Which PSBT format does it supports?
 
@@ -121,11 +129,15 @@ Raw, hex encoded and base64 encoded.
 
 #### I have signed PSBT, how do I broadcast it?
 
+You can scan the QR using for example Specter wallet and broadcast it.
+
+If you don't want to use Camera / QR, you can export it using the SD Card.
+
 First of all perform a Clean Exit (it will wipe BSS/Heap) and remove the battery for 1 minute to ensure data on the RAM is gone.
 
 When you sign a PSBT, a base64 encoded PSBT is generated with the appended ".signed.psbt" extension.
 
-To broadcast I use Bitcoin Core command line.
+To broadcast I use either Specter wallet either the Bitcoin Core command line (works better, especially if the PSBT needs an utxoupdatepsbt).
 
 Fire up the daemon:
 
@@ -149,8 +161,6 @@ It's "proprietary". It uses some rudimental PBKDF2-style derivation + AES + redu
 
 No taproot support.
 
-No QRCode encoding / display support (yet).
-
 Camera preview works only once per app start. The second time the camera still works and captures frames but there is no preview (cannot do anything about it, the preview is started by MRE kernel/PlutoMMI and API do not provide control over it).
 
 Many other smaller limitations.
@@ -163,15 +173,13 @@ Some actions don't have a graphical warning (e.g. wrong wallet password will jus
 
 #### What I could do next (or not)
 
-Cleanup the spaghetti-code mess (not a good coder, sorry, I'm a security researcher, I hack devices and crack apps for fun and profit). The idea was to "finish it ASAP", ignore the fancy stuff, and see if people find it useful.
+Broadcasting transactions via SMS (cool).
 
 Fix word wrap.
 
-Add camera and QRCode support.
-
 Maybe switch to micropython+embit (easier to maintain, more features, etc.).
 
-Broadcasting transactions via SMS (cool).
+Cleanup the spaghetti-code mess (not a good coder, sorry, I'm a security researcher, I hack devices and crack apps for fun and profit). The idea was to "finish it ASAP", ignore the fancy stuff, and see if people find it useful.
 
 #### Apps and libraries used
 
@@ -181,6 +189,7 @@ Broadcasting transactions via SMS (cool).
 - https://github.com/trezor/trezor-firmware/tree/master/crypto
 - https://github.com/kokke/tiny-AES-c
 - https://github.com/jannson/reedsolomon-c
+- https://sourceforge.net/projects/zbar/files/zbar/0.10/
 
 #### Building the app and using the Windows simulator for debugging
 

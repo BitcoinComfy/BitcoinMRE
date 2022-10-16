@@ -9,6 +9,7 @@ enum component_type {
 	NK_MRE_COMPONENT_INPUT_TEXT,
 	NK_MRE_COMPONENT_TEXT,
 	NK_MRE_COMPONENT_IMAGE,
+	NK_MRE_COMPONENT_QRCODE,
 	NK_MRE_COMPONENT_VIDEO,
 	NK_MRE_COMPONENT_CHECKBOX,
 	NK_MRE_COMPONENT_SEPARATOR,
@@ -42,6 +43,7 @@ struct mre_nk_component {
 	int hovering_color;
 	int text_color;
 	int (*action)(int component_index);
+	struct nk_image img;
 };
 
 struct mre_nk_view {

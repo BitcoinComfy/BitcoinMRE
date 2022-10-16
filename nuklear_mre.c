@@ -12,6 +12,7 @@
 #include "bitcoin_mre.h"
 #include "bip39.h"
 #include "zbar.h"
+#include "qrcode_encoder.h"
 
 int g_wallet_type;
 
@@ -115,6 +116,19 @@ char* my_strdup(char* in)
 		strcpy(new_alloc, in);
 	}
 	return new_alloc;
+}
+
+VMINT g_timer_handle = -1;
+
+void delete_psbt_anim_timer()
+{
+	if (g_timer_handle != -1)
+	{
+		int res = vm_delete_timer_ex(g_timer_handle);
+		if (res == 0) {
+			g_timer_handle = -1;
+		}
+	}
 }
 
 void clean_last_decoded_qr()
@@ -868,6 +882,359 @@ nk_mre_handle_key_event_none(VMINT event, VMINT keycode)
 		Draws image set in image object
 		Called by command: NK_COMMAND_IMAGE
 	*/
+#if 0
+void mre_show_image(VMINT size_ctrl, VMWSTR f_wname, VMSTR file_name, VMINT *mre_layer_hdl, short x, short y)
+{
+	/* local variables */
+	VMUINT8 *res=NULL;
+	VMUINT8 *imgres = NULL;
+	VMUINT8 *target_layer_buf;
+	VMINT img; //the canvas (image)
+	VMINT res_size;
+	VMINT imgres_size;
+	VMUINT8 *canvas_buffer = NULL;
+	struct frame_prop* image_prop = NULL;
+	
+	/* File name related variables */
+	//VMWSTR wfilename;
+	//VMINT wfilename_size;
+	//VMSTR filename;
+	//VMSTR filename_vm;
+	//VMCHAR f_name[MRE_STR_SIZE_MAX + 1];	//Old usage for video filename string
+	//VMWCHAR f_wname[MRE_STR_SIZE_MAX + 1]; //Old usage for video filename Part of the argument now
+
+	//VMSTR file_name = "tips.gif"; // Part of argument now
+	VMFILE file_handle;
+	VMUINT nread;
+	VMINT file_read_ret; //file read return value
+
+	/* VMCHAR is the same as VMUINT8 which is the same as unsigned char */
+	VMCHAR *data;
+	 
+	/* Getting em strings ready */
+	/*
+		//Gotta allocate VMSTR before we do anything to it!
+		//filename_vm = malloc(MRE_STR_SIZE_MAX); //Testing
+		//filename = (VMSTR)vm_malloc(MRE_STR_SIZE_MAX); //Testing
+		filename = malloc(MRE_STR_SIZE_MAX);
+		sprintf (filename, "%c:\\%s", vm_get_removable_driver(), file_name);
+		//Gotta allocate VMWSTR before we do anything to it!
+		//wfilename_size = (strlen(filename) + 1) * 2;
+		wfilename = vm_malloc(wfilename_size);
+		wfilename = malloc(wfilename_size);
+		sprintf(f_name, "%c:\\%s", vm_get_removable_driver(), file_name);
+	*/
+
+	/* String format conversion */
+	/*
+		vm_ascii_to_ucs2 (wfilename, MRE_STR_SIZE_MAX, filename);
+		vm_ascii_to_ucs2(f_wname, MRE_STR_SIZE_MAX, f_name);
+	*/
+
+	/* Checking: Test that the file exists, we have access to it */
+		/*
+		if (does_this_file_exist(f_name) == FALSE){
+			vm_exit_app();
+		}
+		if (does_this_file_exist(filename) == FALSE){
+			vm_exit_app();
+		}
+		if (does_this_wfile_exist(f_wname) == FALSE){
+			vm_exit_app();
+		}
+		if (does_this_wfile_exist(wfilename) == FALSE){
+			vm_exit_app();
+		}
+		*/ 
+	
+	/* If using vm4res, we need to initialise the resource. 
+		We don't use resouces */ 
+		//vm_res_init();
+
+	/* Steps according to MRE Developer Guide 
+		7.2.4 How do I draw an image on the screen?  Follow these steps to draw an image:  
+			1. Use the vm_load_resource or the vm_file_read interface to load image data into memory;  
+			2. Use the vm_graphic_load_image interface to decode the image onto a canvas; */
+		//1. Load image data into memory, read the image file:
+		file_handle = vm_file_open(f_wname, MODE_WRITE, TRUE); //Mode as Binary cuz image, right?
+		vm_file_getfilesize(file_handle, &imgres_size);
+		/* Allocate mem for image resource. calloc 0 initialises, malloc: leaves uninitialised */
+		data = vm_malloc(imgres_size + 1);
+		//data = malloc(imgres_size + 1);
+		file_read_ret = vm_file_read(file_handle, data, imgres_size+1, &nread);
+		if (file_read_ret == 0){
+			printf("\n File Read Error ! \n");
+			return;
+		}
+		imgres = &data[0];
+		vm_file_close(file_handle); //Don't need the file no more. Closing it.
+		
+	
+	/*	vm4res.h way 1: */
+	/*	
+		// To use MRE 2.0 resources, we should start with this..
+		vm_res_init();
+		IMAGE_1 = 1;
+		ret = 0;
+		//VMINT vm_res_get_image_and_size_from_file(VMWSTR filename, VMUINT32 image_id, void* buff, VMUINT32 *size);
+		//result = vm_res_get_image_and_size_from_file("E:\\sample.vxp", IMAGE_1,NULL, &size);
+		  
+	
+		ret = vm_res_get_image_and_size_from_file(f_wname, IMAGE_1, NULL, &imgres_size);
+		//1 is ok 0 is error
+		if (ret == 0){
+			printf("\n	ERROR \n");
+			vm_exit_app();
+		}
+	*/
+	
+	/* vm4res.h way 2: */	
+	/*
+		vm_res_init();
+		ret = 0;
+		IMAGE_1 = 1;
+		ret = vm_res_get_string_and_size_from_file(f_wname, IMAGE_1, NULL, &imgres_size);
+		if (ret == 0){
+			printf("\n ERROR2 \n");
+		}
+	*/ 
+	
+	/* Load Image inside Resource 1.0 */ 
+	res = vm_load_resource(file_name, &res_size ) ;//resouce only not file. Can remove this but checking anyway
+	
+    /* if no image found */
+	if(res == NULL)
+	{
+		printf("\nImage from resource not found!");
+	}
+	if(imgres == NULL){
+		printf("\nImage from file not found!");
+	}
+
+	/* Get img from file*/ 
+	if(imgres != NULL && res != NULL)
+	{
+		/* Check what is really the difference */
+		if (strcmp(imgres, res) == 0){
+			printf("\nImage data from res and file are equal");
+		}else{
+			printf("\nImage data from resource and file are Not equal");
+		}
+		if(imgres_size == res_size){
+			printf("\nSizes are equal!");
+		}else{
+			printf("\nSize not equal");
+		}
+	}
+
+	//To Force it to use resources image if available 
+	//imgres = NULL;
+
+	if (imgres != NULL){ 
+		/* image will be loaded in memory */
+		img = vm_graphic_load_image(imgres, imgres_size); 
+		//img = vm_graphic_load_image(data, imgres_size); //Testing
+	}
+	// Second priority to Resource. First priority to filesystem
+	else if (res != NULL){
+		//2. Use vm_graphic_load_image interface to decode the image onto a canvas:
+		//vm_graphic_load_image(res, res_size)
+		//img = vm_graphic_load_image(imgres, imgres_size);
+		img = vm_graphic_load_image(res, res_size); // Trying.. 
+
+		//img = vm_graphic_load_image(&da3ta[0], imgres_size); //Doesnt make a difference
+	}else{
+		printf("\nCan't  proceed with either resource or file.");
+		printf("\nCan't read resource or file. Exiting..");
+		vm_exit_app();
+	}
+
+	switch(img){
+		case VM_GDI_ERR_UNSUPPORT_IMAGE_TYPE:
+			printf("\nUnsupported image type");
+			vm_exit_app();
+			break;
+		case VM_GDI_SUCCEED:
+			printf("\nGDI Success!");
+			break;
+		case VM_GDI_ERR_WRONG_PARAM:
+			printf("\nWrong param internally");
+			vm_exit_app();
+			break;
+		case VM_GDI_FAILED:
+			printf("\nGDI failed.");
+			vm_exit_app();
+			break;
+		case VM_GDI_ERR_MALLOC_FAILED:
+			printf("\nGDI malloc failed.");
+			vm_exit_app();
+			break;
+	}
+
+	if(img==VM_GDI_FAILED){
+		vm_exit_app();
+	}
+
+	image_prop = vm_graphic_get_img_property(img, 1);             
+	target_layer_buf = vm_graphic_get_layer_buffer(mre_layer_hdl[0]); 
+	
+	/* controlling expansion, shrinking or no operation on image, moving will be automatically governed as we have already shift x or y position accordingly*/
+	switch (size_ctrl)
+	{
+		case MRE_GRAPHIC_IMAGE_EXPAND:   
+            /* changing the size of image*/
+			g_mre_img_size_cng = g_mre_img_size_cng + MRE_IMG_EXP_RATE; 
+			if (image_prop->width + g_mre_img_size_cng >= MRE_IMG_MAX_SIZE ||
+			   image_prop->height + g_mre_img_size_cng >= MRE_IMG_MAX_SIZE)
+			{
+				g_mre_img_size_cng = g_mre_img_size_cng - MRE_IMG_EXP_RATE;
+			}
+			/* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng,
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng,
+												image_prop->height + g_mre_img_size_cng);
+			/* getting layer_buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+			/* image layer_buffer is stored in BLUE layer_buffer*/
+			vm_graphic_blt(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 
+							MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width, 
+							image_prop->height, 1);
+			break;
+
+		case MRE_GRAPHIC_IMAGE_SHRINK:   
+			/* changing the size of image*/			
+			g_mre_img_size_cng = g_mre_img_size_cng - MRE_IMG_EXP_RATE;
+			/* controlling the minimum size of shrinking*/
+			if (image_prop->width + g_mre_img_size_cng <= MRE_IMG_MIN_SIZE ||
+			   image_prop->height + g_mre_img_size_cng <= MRE_IMG_MIN_SIZE)
+			{
+				g_mre_img_size_cng = g_mre_img_size_cng + MRE_IMG_EXP_RATE;
+			}
+			/* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng, 
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng, 
+												image_prop->height + g_mre_img_size_cng);
+			/* getting layer_buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+			/* image layer_buffer is stored in BLUE buffer*/
+			vm_graphic_blt(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 
+						   MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width, 
+						   image_prop->height, 1);
+			break;
+
+		/* no operation on image only maintain earlier changes */
+		case MRE_GRAPHIC_IMAGE_CURRENT:  
+
+			/* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng, 
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng, 
+												image_prop->height + g_mre_img_size_cng);
+			/* getting layer_buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+			/* image buffer is stored in BLUE buffer*/
+			//vm_graphic_blt(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 
+			//				MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width,
+			//				image_prop->height, 1);
+			vm_graphic_blt(target_layer_buf, x, y, canvas_buffer, 
+							MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width,
+							image_prop->height, 1);
+			break;
+
+        case MRE_GRAPHIC_IMAGE_ROTATE_CW:
+            g_mre_img_clockwise_cnt += MRE_SET_IMG_ROT;
+            g_mre_img_clockwise_cnt %= MRE_WHOLE_ROT;
+            /* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng, 
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng, 
+												image_prop->height + g_mre_img_size_cng);
+			/* getting buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+            if(g_mre_img_clockwise_cnt == 90 || g_mre_img_clockwise_cnt == 180 || g_mre_img_clockwise_cnt == 270)
+            {
+                vm_graphic_rotate(target_layer_buf,  g_mre_img_x_pos,  g_mre_img_y_pos, canvas_buffer, 1, g_mre_img_clockwise_cnt);
+            }
+            else
+            {
+			    /* image buffer is stored in BLUE buffer*/
+			    vm_graphic_blt(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 
+							    MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width,
+							    image_prop->height, 1);
+            }
+            break;
+
+       case MRE_GRAPHIC_IMAGE_ROTATE_AW:
+            g_mre_img_clockwise_cnt = g_mre_img_clockwise_cnt + MRE_WHOLE_ROT - MRE_SET_IMG_ROT;
+            g_mre_img_clockwise_cnt %= MRE_WHOLE_ROT;
+            /* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng, 
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng, 
+												image_prop->height + g_mre_img_size_cng);
+			/* getting buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+            if(g_mre_img_clockwise_cnt == 90 || g_mre_img_clockwise_cnt == 180 || g_mre_img_clockwise_cnt == 270)
+            {
+                vm_graphic_rotate(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 1, g_mre_img_clockwise_cnt);
+            }
+            else
+            {
+			    /* image buffer is stored in BLUE buffer*/
+			    vm_graphic_blt(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 
+							    MRE_SET_SRC_LEFT_TOP_X, MRE_SET_SRC_LEFT_TOP_Y, image_prop->width,
+							    image_prop->height, 1);
+            }
+             break;
+
+       case MRE_GRAPHIC_IMAGE_MIRROR:
+            /* releaing the old canvas*/
+			vm_graphic_release_canvas(img);
+			/* resizing the image and getting its handle*/
+			//img = vm_graphic_load_image_resized(res, res_size, image_prop->width + g_mre_img_size_cng, 
+			//									image_prop->height + g_mre_img_size_cng);
+			img = vm_graphic_load_image_resized(imgres, imgres_size, image_prop->width + g_mre_img_size_cng, 
+												image_prop->height + g_mre_img_size_cng);
+			/* getting buffer from image handle*/
+			canvas_buffer = vm_graphic_get_canvas_buffer(img);
+			/* getting image properties*/
+			image_prop = vm_graphic_get_img_property(img, 1);
+            vm_graphic_mirror(target_layer_buf, g_mre_img_x_pos, g_mre_img_y_pos, canvas_buffer, 1, g_mre_img_dir);
+            break;
+
+		default :
+			break;
+		}
+
+	/* freeing memories*/
+	vm_graphic_release_canvas(img);	
+	/* freeing thoughts */ 
+	vm_free(data);
+}
+#endif
+
 	static void
 	nk_mre_draw_image(short x, short y, short w, short h, struct nk_image img)
 	{
@@ -1328,6 +1695,7 @@ void hoover_action(VMINT keycode)
 					if (view->previous_id > NK_MRE_VIEW_NONE && view->previous_id < NK_MRE_VIEW_MAX_ID)
 					{
 						set_view(view->previous_id);
+						delete_psbt_anim_timer();
 						if (b_update_gui)
 						{
 							update_gui();
@@ -1579,15 +1947,48 @@ void hoover_action(VMINT keycode)
 			} break;
 			case NK_COMMAND_RECT_MULTI_COLOR:
 				break;
-#if 0
 			case NK_COMMAND_IMAGE: {
 				/* Get the image from the command and image object
 					nk_mre_draw_image(nk_image_img, pos_x, pos_y, image_file_path);
 				So we can have something like this: 
 					nk_mre_draw_image(i->x, i->y, i->w, i->h, i->img.thumb .. );
 				*/ 
+							
+				uint8_t x = 0;
+				uint8_t y = 0;
+
 				const struct nk_command_image *i = (const struct nk_command_image *)cmd;
-				printf("Finally, lets draw some pictures!");
+				// QRCODE XYZ
+				//i->x, i->y, i->w, i->h, i->img
+				QRCode * qrcode = i->img.handle.ptr;
+				size_t width = i->w;
+				size_t height = i->h;
+				size_t vertical_offset = i->y;
+				size_t horizontal_offset = 4;//(vm_graphic_get_screen_width()-width)/2;
+
+				void* buffer = vm_graphic_get_layer_buffer(layer_hdl[0]);
+
+				vm_graphic_fill_rect(buffer, horizontal_offset, vertical_offset, width, 
+							 height, VM_COLOR_WHITE, VM_COLOR_WHITE);
+
+				for (y = 0; y < qrcode->size; y++) {
+					// Each horizontal module
+					for (x = 0; x < qrcode->size; x++) {
+
+						bool is_pixel_black = qrcode_getModule(qrcode, x, y);
+						if (is_pixel_black)
+						{
+							vm_graphic_fill_rect(buffer, horizontal_offset + 4 + x*4, vertical_offset + 4 + y*4, 4, 
+							 4, VM_COLOR_BLACK, VM_COLOR_BLACK);
+						}
+
+					}
+					// new row
+				}
+
+				vm_graphic_flush_layer(layer_hdl, 1);
+
+				//printf("Finally, lets draw some pictures!");
 				
 				//nk_mre_draw_image_default(i->x, i->y, i->w, i->h); //default testing 
 
@@ -1597,10 +1998,10 @@ void hoover_action(VMINT keycode)
 				nk_handle:
 					typedef union {void *ptr; int id;} nk_handle;
 				*/ 
-				nk_mre_draw_image(i->x, i->y, i->w, i->h, i->img);
-				printf("Drew the image. Flushing..");
+				//nk_mre_draw_image(i->x, i->y, i->w, i->h, i->img);
+				//printf("Drew the image. Flushing..");
 			} break;
-#endif
+
 			case NK_COMMAND_ARC:
 			case NK_COMMAND_ARC_FILLED:
 			default: break;
@@ -1662,9 +2063,35 @@ struct mre_nk_component * mre_nk_component_create(int type, char *text, int is_h
 	return cmpnt;
 }
 
-VMWCHAR w_text_entropy[256];
+#define QRCODE_VERSION 9
+#define QRCODE_SIZE 53
+#define QRCODE_MAX_ALPHANUM_CHARS 335
+#define QRCODE_MAX_BYTES_CHARS 230
 
-static int entropy_char_left = TEXT_ENTROPY_LEN;
+void clean_old_single_qr(int view_enum)
+{
+	struct mre_nk_view* view = &g_view[view_enum];
+	QRCode* old_qrcode = NULL;
+	uint8_t* old_qrcodeData = NULL;
+	size_t qrcodeDataLen = qrcode_getBufferSize(QRCODE_VERSION);
+
+	old_qrcode = view->components[0]->img.handle.ptr;
+	if (old_qrcode)
+	{
+		old_qrcodeData = old_qrcode->modules;
+	}
+
+	if (old_qrcodeData)
+	{
+		memset(old_qrcodeData, 0, qrcodeDataLen);
+		vm_free(old_qrcodeData);
+	}
+	if (old_qrcode)
+	{
+		memset(old_qrcode, 0, sizeof(QRCode));
+		vm_free(old_qrcode);
+	}
+}
 
 void replace_ascii_text_alloc(char** old_alloc, char* new_str)
 {
@@ -1673,8 +2100,52 @@ void replace_ascii_text_alloc(char** old_alloc, char* new_str)
 	char* new_alloc = vm_calloc(str_len + 1);
 	strcpy(new_alloc, new_str);
 	(*old_alloc) = new_alloc;
-	vm_free(old_str);
+	if (old_str)
+	{
+		memset(old_str, 0, strlen(old_str));
+		vm_free(old_str);
+	}
 }
+
+void set_single_qrcode(char* str, int view_enum)
+{
+	struct mre_nk_view* view;
+
+	QRCode *qrcode = NULL;
+	uint8_t *qrcodeData = NULL;
+	size_t qrcodeDataLen = 0;
+
+	QRCode* old_qrcode = NULL;
+	uint8_t* old_qrcodeData = NULL;
+
+	if (!str)
+	{
+		return;
+	}
+	
+	qrcode = vm_calloc(sizeof(QRCode));
+	qrcodeDataLen = qrcode_getBufferSize(QRCODE_VERSION);
+	qrcodeData = vm_calloc(qrcodeDataLen);
+
+    qrcode_initText(qrcode, qrcodeData, QRCODE_VERSION, ECC_LOW, str);
+  
+	// clean and free old one
+	clean_old_single_qr(view_enum);
+
+	// assign new one
+	view = &g_view[view_enum];
+	view->components[0]->img.handle.ptr = qrcode;
+	
+	replace_ascii_text_alloc(&view->components[1]->text, str);
+
+	//set_view(NK_MRE_VIEW_TEST_QR_DISPLAY);
+	//update_gui();
+}
+
+
+VMWCHAR w_text_entropy[256];
+
+static int entropy_char_left = TEXT_ENTROPY_LEN;
 
 void update_char_left(VMINT state, VMWSTR text)
 {
@@ -2538,6 +3009,19 @@ int open_create_pin(int component_index)
 	return 0;
 }
 
+int open_display_mnemo_qr(int component_index)
+{
+	struct mre_nk_view* view;
+
+	set_view(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+	view->previous_id = NK_MRE_VIEW_WALLET_CREATION_3;
+
+	set_single_qrcode(get_mnemo(), NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	
+	update_gui();
+	return 0;
+}
 
 
 // input_new_wallet_password
@@ -2932,6 +3416,87 @@ int display_priv(int a)
 	return 0;
 }
 
+int display_pub_qr(int a)
+{
+	struct mre_nk_view* view;
+
+	set_view(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+	view->previous_id = NK_MRE_VIEW_WALLET_WIF_2;
+
+	set_single_qrcode(get_pub(), NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	
+	update_gui();
+}
+
+int display_acc_ext_qr(int a)
+{
+	struct mre_nk_view* view;
+
+	set_view(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+	view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
+
+	set_single_qrcode(get_acc_ext_pub(), NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	
+	update_gui();
+}
+
+int g_last_recv_pubs_idx = 0;
+
+void display_multi_pub_qr()
+{
+	struct mre_nk_view* view;
+	char pubkey[32];
+
+	if (g_last_recv_pubs_idx < 0 || g_last_recv_pubs_idx > 99)
+	{
+		g_last_recv_pubs_idx = 0;
+	}
+
+	set_view(NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR);
+	view = &g_view[NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR];
+	view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
+
+	set_single_qrcode(get_recv_pubs(g_last_recv_pubs_idx), NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR);
+
+	sprintf(pubkey, "Public Key %d", g_last_recv_pubs_idx + 1);
+	replace_ascii_text_alloc(&view->title, pubkey);
+	
+	update_gui();
+}
+
+int display_first_recv_addr_qr(int a)
+{
+	g_last_recv_pubs_idx = 0;
+	display_multi_pub_qr();
+}
+
+int display_next_pub_qr(int a)
+{
+	g_last_recv_pubs_idx++;
+	display_multi_pub_qr();
+}
+
+int display_prev_pub_qr(int a)
+{
+	g_last_recv_pubs_idx--;
+	display_multi_pub_qr();
+}
+
+int display_mnemo_qr(int a)
+{
+	struct mre_nk_view* view;
+
+	set_view(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+	view->previous_id = NK_MRE_VIEW_WALLET_MAIN_3;
+
+	set_single_qrcode(get_mnemo(), NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	
+	update_gui();
+}
+
 enum save_what {
 	SAVE_XPUB,
 	SAVE_XPRIV,
@@ -3093,80 +3658,116 @@ int save_priv(int a)
 	return 0;
 }
 
-#if 0
-unsigned char wallet_3_a8431ce5_psbt[] = {
-  0x70, 0x73, 0x62, 0x74, 0xff, 0x01, 0x00, 0x71, 0x02, 0x00, 0x00, 0x00,
-  0x01, 0x66, 0xc7, 0xc9, 0x87, 0x34, 0xc8, 0xf9, 0x21, 0x00, 0xa0, 0x9c,
-  0xdc, 0x6f, 0x57, 0x69, 0xf6, 0x25, 0x8e, 0xa2, 0x4f, 0x6b, 0x59, 0x5e,
-  0x77, 0x49, 0x9c, 0x95, 0x1a, 0x0d, 0xf2, 0xed, 0x62, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0xfd, 0xff, 0xff, 0xff, 0x02, 0x10, 0x27, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x16, 0x00, 0x14, 0x33, 0x32, 0x21, 0x5b, 0xfe, 0xb9,
-  0xc6, 0xc2, 0xa9, 0xfa, 0xcb, 0x1d, 0x7d, 0x74, 0xb2, 0x39, 0x53, 0xca,
-  0xb6, 0x69, 0x78, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00,
-  0x14, 0x33, 0x32, 0x21, 0x5b, 0xfe, 0xb9, 0xc6, 0xc2, 0xa9, 0xfa, 0xcb,
-  0x1d, 0x7d, 0x74, 0xb2, 0x39, 0x53, 0xca, 0xb6, 0x69, 0x16, 0xdb, 0x23,
-  0x00, 0x00, 0x01, 0x00, 0xbf, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01,
-  0xb4, 0xf2, 0x0d, 0x3e, 0xee, 0x7a, 0x94, 0x21, 0xe4, 0x63, 0xd0, 0x04,
-  0xe7, 0x0a, 0xca, 0x4e, 0xf9, 0xa6, 0x70, 0xcd, 0x32, 0xf8, 0xa3, 0x66,
-  0xac, 0x57, 0xf8, 0x29, 0xa5, 0x95, 0xa5, 0x7d, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0xfd, 0xff, 0xff, 0xff, 0x01, 0x52, 0xdc, 0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x16, 0x00, 0x14, 0x33, 0x32, 0x21, 0x5b, 0xfe, 0xb9, 0xc6,
-  0xc2, 0xa9, 0xfa, 0xcb, 0x1d, 0x7d, 0x74, 0xb2, 0x39, 0x53, 0xca, 0xb6,
-  0x69, 0x02, 0x47, 0x30, 0x44, 0x02, 0x20, 0x18, 0xeb, 0x88, 0x5d, 0x02,
-  0x27, 0xe8, 0x87, 0xb0, 0x6f, 0x03, 0x97, 0x58, 0x5e, 0x9b, 0xe8, 0xbc,
-  0x6a, 0x2e, 0x7a, 0xb7, 0xd6, 0x25, 0xbb, 0x09, 0x39, 0xcc, 0xd1, 0x73,
-  0x98, 0x66, 0x50, 0x02, 0x20, 0x52, 0xc7, 0x3d, 0xbe, 0x2c, 0x74, 0x2d,
-  0x54, 0x60, 0x04, 0x99, 0xdc, 0x52, 0xf6, 0xf3, 0x96, 0x0c, 0x47, 0x5b,
-  0x57, 0xee, 0x45, 0xae, 0x35, 0x0d, 0xe4, 0x3b, 0x52, 0x29, 0x62, 0xda,
-  0x1c, 0x01, 0x21, 0x02, 0x47, 0x75, 0x40, 0xb5, 0xc5, 0x0a, 0x6f, 0xbf,
-  0x8e, 0x24, 0x58, 0x2a, 0x8c, 0x0d, 0xe8, 0xa2, 0xd7, 0x4a, 0x70, 0x58,
-  0xa9, 0x31, 0x7d, 0xee, 0x88, 0x52, 0xb4, 0xda, 0x6a, 0xe9, 0xe2, 0xfb,
-  0xfa, 0xda, 0x23, 0x00, 0x00, 0x00, 0x00
-};
-unsigned int wallet_3_a8431ce5_psbt_len = 319;
-
-void save_test_psbt()
-{
-	VMWCHAR w_path[MAX_APP_NAME_LEN];
-	char path[MAX_APP_NAME_LEN];
-	VMUINT written = 0;
-	VMFILE handle = -1;
-	
-	sprintf(path, "%c:\\btc_mre_wallet\\psbt\\testnet_wif.psbt", mre_get_drv());
-	vm_ascii_to_ucs2(w_path, sizeof(w_path), path);
-
-	handle = vm_file_open(w_path, MODE_CREATE_ALWAYS_WRITE, FALSE);
-	if (handle > 0)
-	{
-		vm_file_write(handle, wallet_3_a8431ce5_psbt, wallet_3_a8431ce5_psbt_len, &written);
-		vm_file_close(handle);
-	}
-}
-#endif
-
-#if 0
-void save_test_psbt_mnemo()
-{
-	char psbt[] = "cHNidP8BAJoCAAAAAkzxWp0FJBpa/6aEqajG7t5H3T6ZIlm1jnJHZ0TkW7s/AAAAAAD9////TPFanQUkGlr/poSpqMbu3kfdPpkiWbWOckdnRORbuz8BAAAAAP3///8C8a08AAAAAAAWABQEk2IHzvbP1TUu+9x+LA6/R1B2nUBCDwAAAAAAFgAUieM46pZMD41V7zLOKTomEbsMfgsm3SMAAAEBH4CEHgAAAAAAFgAUMzIhW/65xsKp+ssdfXSyOVPKtmkiBgL3BLA31U+ZFD/OeYhirRjyOlZF3gTML8v59nZ7p0jT/wzm33BXAAAAAAAAAAAAAQEfhGwtAAAAAAAWABQzMiFb/rnGwqn6yx19dLI5U8q2aSIGAvcEsDfVT5kUP855iGKtGPI6VkXeBMwvy/n2dnunSNP/DObfcFcAAAAAAAAAAAAiAgJiFCBDt79rUci8yT5pRnkfMfQItgQVf5AyV2X8FgvuDgzm33BXAQAAAAAAAAAAIgICp2/LooSPfTg334nbxDpXfMjjV5Y2rN0M/d+TH9op0CcM5t9wVwAAAAABAAAAAA==";
-	VMWCHAR w_path[MAX_APP_NAME_LEN];
-	char path[MAX_APP_NAME_LEN];
-	VMUINT written = 0;
-	VMFILE handle = -1;
-	
-	sprintf(path, "%c:\\btc_mre_wallet\\psbt\\testnet_mnemo.psbt", mre_get_drv());
-	vm_ascii_to_ucs2(w_path, sizeof(w_path), path);
-
-	handle = vm_file_open(w_path, MODE_CREATE_ALWAYS_WRITE, FALSE);
-	if (handle > 0)
-	{
-		vm_file_write(handle, psbt, strlen(psbt), &written);
-		vm_file_close(handle);
-	}
-}
-#endif
-
 VMWCHAR w_psbt_path[MAX_APP_NAME_LEN];
 
+char* g_last_signed_pstb_str = NULL;
+
+void clean_last_signed_pstb_str()
+{
+	if (g_last_signed_pstb_str)
+	{
+		memset(g_last_signed_pstb_str, 0, strlen(g_last_signed_pstb_str));
+		vm_free(g_last_signed_pstb_str);
+		g_last_signed_pstb_str = NULL;
+	}
+}
+
+void set_last_signed_pstb_str(void* signed_pstb_data, size_t signed_pstb_len)
+{
+	char* new_alloc = vm_calloc(signed_pstb_len + 1);
+	memcpy(new_alloc, signed_pstb_data, signed_pstb_len); // not sure if it has null byte so use +1 calloc + memcpy
+	clean_last_signed_pstb_str();
+	g_last_signed_pstb_str = new_alloc;
+}
+
+char* g_signed_psbt_parts[QR_ARR_MAX_SIZE] = {0};
+int g_signed_psbt_part_displaying = 0;
+
+void timer_callback(VMINT tid)
+{
+	g_signed_psbt_part_displaying++;
+	if (g_signed_psbt_parts[g_signed_psbt_part_displaying] == NULL)
+	{
+		g_signed_psbt_part_displaying = 0;
+	}
+	set_single_qrcode(g_signed_psbt_parts[g_signed_psbt_part_displaying], NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR);
+
+	update_gui();
+}
+
+void clean_psbt_parts()
+{
+	int i=0;
+	for (i=0;i<QR_ARR_MAX_SIZE;i++)
+	{
+		char* tmp = g_signed_psbt_parts[i];
+		if (tmp)
+		{
+			memset(tmp, 0, strlen(tmp));
+			vm_free(tmp);
+		} else {
+			break;
+		}
+	}
+}
+
+void split_psbt_into_parts()
+{
+	char tmp_buff[QRCODE_MAX_BYTES_CHARS];
+	int max_part_len = QRCODE_MAX_BYTES_CHARS - 1 - strlen("p999of999 ");
+	int len_psbt_str = strlen(g_last_signed_pstb_str);
+	int parts = len_psbt_str / max_part_len;
+	int offs = 0;
+	char* tmp_str_ptr = g_last_signed_pstb_str;
+	int i = 1;
+	if (len_psbt_str % max_part_len)
+	{
+		parts++;
+	}
+	clean_psbt_parts();
+
+	for (i=0; i<parts; i++)
+	{
+		g_signed_psbt_parts[i] = vm_calloc(QRCODE_MAX_BYTES_CHARS);
+
+		tmp_str_ptr = g_last_signed_pstb_str + offs;
+		memcpy(tmp_buff, tmp_str_ptr, max_part_len);
+		tmp_buff[max_part_len] = 0;
+		sprintf(g_signed_psbt_parts[i], "p%dof%d %s", i+1, parts, tmp_buff);
+		offs += max_part_len;
+	}
+}
+
+int show_signed_psbt_qr(int a)
+{
+	struct mre_nk_view* view;
+	int psbt_strlen = strlen(g_last_signed_pstb_str);
+
+	if (psbt_strlen < QRCODE_MAX_BYTES_CHARS)
+	{
+		set_view(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+		view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+		view->previous_id = NK_MRE_VIEW_WALLET_PSBT_SIGNED;
+
+		set_single_qrcode(get_pub(), NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	} else {
+		split_psbt_into_parts();
+
+		set_view(NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR);
+		view = &g_view[NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR];
+		view->previous_id = NK_MRE_VIEW_WALLET_PSBT_SIGNED;
+
+		delete_psbt_anim_timer();
+		g_signed_psbt_part_displaying = 0;
+		set_single_qrcode(g_signed_psbt_parts[g_signed_psbt_part_displaying], NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR);
+
+		g_timer_handle = vm_create_timer_ex(2000, timer_callback);
+	}
+	
+	update_gui();
+}
+
+// todo: merge with the func below
 bool sign_now(bool is_hd)
 {
 	bool res = false;
@@ -3245,6 +3846,8 @@ bool sign_now(bool is_hd)
 			vm_file_write(wr_handle, signed_pstb_data, signed_pstb_len, &nwrite);
 			vm_file_close(wr_handle);
 
+			set_last_signed_pstb_str(signed_pstb_data, signed_pstb_len);
+
 			memset(signed_pstb_data, 0, signed_pstb_len);
 			vm_free(signed_pstb_data);
 
@@ -3255,7 +3858,7 @@ bool sign_now(bool is_hd)
 	return res;
 }
 
-
+// todo: merge with the func above
 bool sign_now_qr(bool is_hd)
 {
 	bool res = false;		
@@ -3343,6 +3946,8 @@ typedef struct vm_time_t {
 
 			vm_file_write(wr_handle, signed_pstb_data, signed_pstb_len, &nwrite);
 			vm_file_close(wr_handle);
+
+			set_last_signed_pstb_str(signed_pstb_data, signed_pstb_len);
 
 			memset(signed_pstb_data, 0, signed_pstb_len);
 			vm_free(signed_pstb_data);
@@ -4187,6 +4792,7 @@ int go_back(int idx)
 {
 	struct mre_nk_view* view = get_mre_nk_view();
 	set_view(view->previous_id);
+	delete_psbt_anim_timer();
 	update_gui();
 }
 
@@ -4211,6 +4817,14 @@ int clean_and_exit(int a)
 	memset(w_psbt_path, 0, sizeof(w_psbt_path));
 
 	clean_last_decoded_qr();
+
+	clean_old_single_qr(NK_MRE_VIEW_DISPLAY_SINGLE_QR);
+	clean_old_single_qr(NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR);
+	clean_old_single_qr(NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR);
+
+	clean_last_signed_pstb_str();
+
+	clean_psbt_parts();
 
 	cleanup_sensitive_data();
 
@@ -4356,6 +4970,7 @@ void create_view_create_2(){
 void create_view_create_3(){
 	struct mre_nk_component *comp_button1;
 	struct mre_nk_component *comp_label1;
+	struct mre_nk_component *comp_button2;
 
 	struct mre_nk_view* view;
 	char str_title[] = "Mnemonics";
@@ -4368,11 +4983,13 @@ void create_view_create_3(){
 	strcpy(view->title, str_title);
 
 	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "", 0, 0, NULL);
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "I saved them", 1, 0, open_create_pin);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display QR", 1, 0, open_display_mnemo_qr);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "I saved them", 1, 0, open_create_pin);
 
-	view->components = vm_monitored_calloc(3*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(4*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_label1;
 	view->components[1] = comp_button1;
+	view->components[2] = comp_button2;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -4527,8 +5144,8 @@ void create_view_wallet_main_wif_1(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Segwit (default)", 1, 0, set_addr_segwit);
-	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Legacy", 1, 0, set_addr_legacy);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Legacy (default)", 1, 0, set_addr_legacy);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Segwit", 1, 0, set_addr_segwit);
 	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Nested segwit", 1, 0, set_addr_nested_segwit);
 
 	view->components = vm_monitored_calloc(4*sizeof(struct mre_nk_component *));
@@ -4539,6 +5156,7 @@ void create_view_wallet_main_wif_1(){
 
 void create_view_psbt_signed(){
 	struct mre_nk_component *comp_label1;
+	struct mre_nk_component *comp_button1;
 	struct mre_nk_component *comp_button2;
 
 	struct mre_nk_view* view;
@@ -4552,11 +5170,13 @@ void create_view_psbt_signed(){
 	strcpy(view->title, str_title);
 
 	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "PSBT was signed and saved correctly (<psbt_filename or date>.signed.psbt). To finalize the PSBT, run 'bitcoin-cli utxoupdatepsbt <b64>' and 'bitcoin-cli finalizepsbt <b64>'.", 0, 0, NULL);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Show QR", 1, 0, show_signed_psbt_qr);
 	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
-	view->components = vm_monitored_calloc(3*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(4*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_label1;
-	view->components[1] = comp_button2;
+	view->components[1] = comp_button1;
+	view->components[2] = comp_button2;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -4591,6 +5211,7 @@ void create_view_wallet_main_wif_2(){
 	struct mre_nk_component *comp_button5;
 	struct mre_nk_component *comp_button6;
 	struct mre_nk_component *comp_button7;
+	struct mre_nk_component *comp_button8;
 
 	struct mre_nk_view* view;
 	char str_title[] = "Wallet actions";
@@ -4604,13 +5225,14 @@ void create_view_wallet_main_wif_2(){
 
 	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (file)", 1, 0, sign_psbt_wif);
 	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (QR)", 1, 0, sign_psbt_wif_qr);
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub key", 1, 0, display_pub);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display priv key", 1, 0, display_priv);
-	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub key", 1, 0, save_pub);
-	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv key (RISKY)", 1, 0, save_priv);
-	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub key (file)", 1, 0, save_pub);
+	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Receive address (QR)", 1, 0, display_pub_qr);
+	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub key", 1, 0, display_pub);
+	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Disp priv key (RISKY)", 1, 0, display_priv);
+	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv key (RISKY)", 1, 0, save_priv);
+	comp_button8 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
-	view->components = vm_monitored_calloc(9*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(10*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
 	view->components[2] = comp_button3;
@@ -4618,6 +5240,7 @@ void create_view_wallet_main_wif_2(){
 	view->components[4] = comp_button5;
 	view->components[5] = comp_button6;
 	view->components[6] = comp_button7;
+	view->components[7] = comp_button8;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -4629,6 +5252,9 @@ void create_view_wallet_main_3(){
 	struct mre_nk_component *comp_button5;
 	struct mre_nk_component *comp_button6;
 	struct mre_nk_component *comp_button7;
+	struct mre_nk_component *comp_button8;
+	struct mre_nk_component *comp_button9;
+	struct mre_nk_component *comp_button10;
 
 	struct mre_nk_view* view;
 	char str_title[] = "Wallet actions";
@@ -4640,15 +5266,18 @@ void create_view_wallet_main_3(){
 	view->title = vm_monitored_calloc(strlen(str_title)+1);
 	strcpy(view->title, str_title);
 
-	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT file", 1, 0, sign_psbt_mnemo);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (file)", 1, 0, sign_psbt_mnemo);
 	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Sign PSBT (QR)", 1, 0, sign_psbt_mnemo_qr);
-	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub info", 1, 0, display_xpub);
-	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display prv info", 1, 0, display_xpriv);
-	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub info", 1, 0, save_xpub);
-	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv info (RISKY)", 1, 0, save_xpriv);
-	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save pub info (file)", 1, 0, save_xpub);
+	comp_button4 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Acc. Ext. PubKey (QR)", 1, 0, display_acc_ext_qr);
+	comp_button5 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Receive address (QR)", 1, 0, display_first_recv_addr_qr);
+	comp_button6 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Display pub info", 1, 0, display_xpub);
+	comp_button7 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Displ. prv info(RISKY)", 1, 0, display_xpriv);
+	comp_button8 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Save priv info (RISKY)", 1, 0, save_xpriv);
+	comp_button9 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Mnemonics (QR)(RISKY)", 1, 0, display_mnemo_qr);
+	comp_button10 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Clean exit", 1, 0, clean_and_exit);
 
-	view->components = vm_monitored_calloc(9*sizeof(struct mre_nk_component *));
+	view->components = vm_monitored_calloc(12*sizeof(struct mre_nk_component *));
 	view->components[0] = comp_button1;
 	view->components[1] = comp_button2;
 	view->components[2] = comp_button3;
@@ -4656,6 +5285,9 @@ void create_view_wallet_main_3(){
 	view->components[4] = comp_button5;
 	view->components[5] = comp_button6;
 	view->components[6] = comp_button7;
+	view->components[7] = comp_button8;
+	view->components[8] = comp_button9;
+	view->components[9] = comp_button10;
 	//view->components[3] = NULL; // calloc does the job
 }
 
@@ -4783,26 +5415,117 @@ void create_view_wallet_action(){
 	//view->components[3] = NULL; // calloc does the job
 }
 
-// it leaks mem, cause we reallocate a new one at each test, but whatever
-// it doesn't go into production, it will be #if 0
-void create_view_qr_text()
-{
+void create_view_display_anim_psbt_qr(){
+	struct mre_nk_component *comp_img1;
 	struct mre_nk_component *comp_label1;
-	
-	struct mre_nk_view* view;
-	char str_gen_title[] = "Test";
+	struct mre_nk_component *comp_button1;
+	struct mre_nk_component *comp_button2;
+	struct mre_nk_component *comp_button3;
 
-	view = &g_view[NK_MRE_VIEW_QR_TEST];
-	view->id = NK_MRE_VIEW_QR_TEST;
-	view->previous_id = NK_MRE_VIEW_WALLET_ACTION;
+	struct mre_nk_view* view;
+	char str_gen_title[] = "Signed PSBT";
+
+	view = &g_view[NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR];
+	view->id = NK_MRE_VIEW_DISPLAY_ANIM_PSBT_QR;
+	view->previous_id = NK_MRE_VIEW_WALLET_PSBT_SIGNED;
 	
 	view->title = vm_monitored_calloc(strlen(str_gen_title)+1);
 	strcpy(view->title, str_gen_title);
 
-	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, g_last_decoded_qr, 0, 0, NULL);
+	comp_img1 = mre_nk_component_create(NK_MRE_COMPONENT_QRCODE, "", 0, 0, NULL);
+	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "", 0, 0, NULL);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Back", 1, 0, go_back);
 
-	view->components = vm_monitored_calloc(2*sizeof(struct mre_nk_component *));
-	view->components[0] = comp_label1;
+	//typedef union {void *ptr; int id;} nk_handle;
+	//struct nk_image {nk_handle handle;unsigned short w,h;unsigned short region[4]; char *path;};
+	comp_img1->img.w = 4 + (QRCODE_SIZE * 4) + 4;
+	comp_img1->img.h = 4 + (QRCODE_SIZE * 4) + 4;
+	//comp_img1->img.region[0] = 0;
+	//comp_img1->img.region[1] = 1;
+	//comp_img1->img.region[2] = 2;
+	//comp_img1->img.region[3] = 3;
+	//img->handle.ptr = buff;
+
+	view->components = vm_monitored_calloc(6*sizeof(struct mre_nk_component *));
+	view->components[0] = comp_img1;
+	view->components[1] = comp_label1;
+	view->components[2] = comp_button3;
+}
+
+void create_view_display_multi_pubkeys_qr(){
+	struct mre_nk_component *comp_img1;
+	struct mre_nk_component *comp_label1;
+	struct mre_nk_component *comp_button1;
+	struct mre_nk_component *comp_button2;
+	struct mre_nk_component *comp_button3;
+
+	struct mre_nk_view* view;
+	char str_gen_title[] = "Public Key 1";
+
+	view = &g_view[NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR];
+	view->id = NK_MRE_VIEW_DISPLAY_MULTI_PUB_QR;
+	view->previous_id = NK_MRE_VIEW_NONE;
+	
+	view->title = vm_monitored_calloc(strlen(str_gen_title)+1);
+	strcpy(view->title, str_gen_title);
+
+	comp_img1 = mre_nk_component_create(NK_MRE_COMPONENT_QRCODE, "", 0, 0, NULL);
+	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "", 0, 0, NULL);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Next PubKey QR", 1, 0, display_next_pub_qr);
+	comp_button2 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Prev PubKey QR", 1, 0, display_prev_pub_qr);
+	comp_button3 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Back", 1, 0, go_back);
+
+	//typedef union {void *ptr; int id;} nk_handle;
+	//struct nk_image {nk_handle handle;unsigned short w,h;unsigned short region[4]; char *path;};
+	comp_img1->img.w = 4 + (QRCODE_SIZE * 4) + 4;
+	comp_img1->img.h = 4 + (QRCODE_SIZE * 4) + 4;
+	//comp_img1->img.region[0] = 0;
+	//comp_img1->img.region[1] = 1;
+	//comp_img1->img.region[2] = 2;
+	//comp_img1->img.region[3] = 3;
+	//img->handle.ptr = buff;
+
+	view->components = vm_monitored_calloc(6*sizeof(struct mre_nk_component *));
+	view->components[0] = comp_img1;
+	view->components[1] = comp_label1;
+	view->components[2] = comp_button1;
+	view->components[3] = comp_button2;
+	view->components[4] = comp_button3;
+}
+
+void create_view_display_single_qr(){
+	struct mre_nk_component *comp_img1;
+	struct mre_nk_component *comp_label1;
+	struct mre_nk_component *comp_button1;
+
+	struct mre_nk_view* view;
+	char str_gen_title[] = "QR code";
+
+	view = &g_view[NK_MRE_VIEW_DISPLAY_SINGLE_QR];
+	view->id = NK_MRE_VIEW_DISPLAY_SINGLE_QR;
+	view->previous_id = NK_MRE_VIEW_NONE;
+	
+	view->title = vm_monitored_calloc(strlen(str_gen_title)+1);
+	strcpy(view->title, str_gen_title);
+
+	comp_img1 = mre_nk_component_create(NK_MRE_COMPONENT_QRCODE, "", 0, 0, NULL);
+	comp_label1 = mre_nk_component_create(NK_MRE_COMPONENT_TEXT, "", 0, 0, NULL);
+	comp_button1 = mre_nk_component_create(NK_MRE_COMPONENT_BUTTON, "Back", 1, 0, go_back);
+
+	//typedef union {void *ptr; int id;} nk_handle;
+	//struct nk_image {nk_handle handle;unsigned short w,h;unsigned short region[4]; char *path;};
+	comp_img1->img.w = 4 + (QRCODE_SIZE * 4) + 4;
+	comp_img1->img.h = 4 + (QRCODE_SIZE * 4) + 4;
+	//comp_img1->img.region[0] = 0;
+	//comp_img1->img.region[1] = 1;
+	//comp_img1->img.region[2] = 2;
+	//comp_img1->img.region[3] = 3;
+	//img->handle.ptr = buff;
+
+	view->components = vm_monitored_calloc(4*sizeof(struct mre_nk_component *));
+	view->components[0] = comp_img1;
+	view->components[1] = comp_label1;
+	view->components[2] = comp_button1;
 }
 
 #if 0
@@ -4903,7 +5626,7 @@ void populate_view(){
 			static int property = 20;
 			int i = 0;
 			enum nk_button_behavior button_behavior;
-			struct nk_image img;
+			
 			char *image_path;
 			static char in_text[9][64];
 			static int in_text_len[9];	
@@ -4952,10 +5675,12 @@ void populate_view(){
 					struct mre_nk_component * comp = view->components[i];
 					if (comp->type == NK_MRE_COMPONENT_SEPARATOR)
 					{
-						nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						//nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						nk_layout_row_static(ctx, GRAPHIC_ELEMENT_HEIGHT, mre.width-30, 1);
 					} else if (comp->type == NK_MRE_COMPONENT_BUTTON)
 					{
-						nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						//nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						nk_layout_row_static(ctx, GRAPHIC_ELEMENT_HEIGHT, mre.width-30, 1);
 						button_behavior = NK_BUTTON_DEFAULT;
 						if (hovering_index == i){
 							button_behavior = NK_BUTTON_HOVER;
@@ -4972,8 +5697,8 @@ void populate_view(){
 						if (reminder) {
 							rows++;
 						}
-						//nk_layout_row_static(ctx, 30*rows, mre.width-30, 1);
-						nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT*rows, 1);
+						//nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT*rows, 1);
+						nk_layout_row_static(ctx, GRAPHIC_ELEMENT_HEIGHT*rows, mre.width-30, 1);
 						if (rows > 1)
 						{
 							nk_label_wrap(ctx, comp->text);
@@ -4984,7 +5709,8 @@ void populate_view(){
 					{
 						int text_len = strlen(comp->text) + 1;
 
-						nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						nk_layout_row_static(ctx, GRAPHIC_ELEMENT_HEIGHT, mre.width-30, 1);
+						//nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
 						button_behavior = NK_BUTTON_DEFAULT;
 						if (hovering_index == i){
 							button_behavior = NK_BUTTON_HOVER;
@@ -4994,13 +5720,18 @@ void populate_view(){
 						nk_edit_string(ctx, NK_EDIT_BOX, comp->text, &text_len, text_len, nk_filter_ascii);
 					} else if (comp->type == NK_MRE_COMPONENT_CHECKBOX)
 					{
-						nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
+						nk_layout_row_static(ctx, GRAPHIC_ELEMENT_HEIGHT, mre.width-30, 1);
+						//nk_layout_row_dynamic(ctx, GRAPHIC_ELEMENT_HEIGHT, 1);
 						button_behavior = NK_BUTTON_DEFAULT;
 						if (hovering_index == i){
 							button_behavior = NK_BUTTON_HOVER;
 						}
 						ctx->button_behavior = button_behavior;
 						nk_checkbox_label(ctx, comp->text, &comp->checked);
+					} else if (comp->type == NK_MRE_COMPONENT_QRCODE)
+					{
+						nk_layout_row_static(ctx, comp->img.h, comp->img.w, 1);
+						nk_image(ctx, comp->img);
 					}
 				}
 			}
@@ -5119,6 +5850,10 @@ void initiate_nk_gui(void){
 	create_view_psbt_error();
 	create_view_sensitive_save();
 	create_view_sensitive_saved();
+
+	create_view_display_single_qr();
+	create_view_display_multi_pubkeys_qr();
+	create_view_display_anim_psbt_qr();
 
 	//create_view_testtest();
 	//create_view_wallet();

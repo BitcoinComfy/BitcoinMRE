@@ -48,6 +48,11 @@ void derive_xpriv();
 void create_priv_key();
 void cleanup_sensitive_data();
 
+char* get_acc_ext_pub();
+void set_acc_ext_pub(char* str);
+char* get_recv_pubs(int idx);
+void set_recv_pubs(char* str, int idx);
+
 char* get_xpub();
 char* get_xpriv();
 void set_xpub(char* str);
