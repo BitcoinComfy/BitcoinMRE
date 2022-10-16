@@ -149,7 +149,9 @@ It's "proprietary". It uses some rudimental PBKDF2-style derivation + AES + redu
 
 No taproot support.
 
-No camera/QRCode support (yet).
+No QRCode encoding / display support (yet).
+
+Camera preview works only once per app start. The second time the camera still works and captures frames but there is no preview (cannot do anything about it, the preview is started by MRE kernel/PlutoMMI and API do not provide control over it).
 
 Many other smaller limitations.
 
@@ -187,6 +189,14 @@ Read below (copy pasted from from https://github.com/UstadMobile/ustadmobile-mre
 Use the C-flag -DTRY_TESTNET=1 to compile for Testnet.
 
 The final executable will be placed in arm/Default.vxp
+
+#### Why don't you add obj files to gitignore?
+
+Cause compiling it's not trivial, and I want to allow everyone to inspect the app.
+
+Default.axf / BitcoinMRE.axf is the compiled ELF file (easier to inspect).
+
+Default.axf / BitcoinMRE.axf / Mainnet.vxp  / Testnet.vxp is the Mediatek packed ELF after bundling resources.
 
 #### Quick notes of an MRE app (from UstadMobile)
 
